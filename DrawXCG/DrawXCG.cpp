@@ -1203,100 +1203,50 @@ void DrawTextOutW(HDC hdc, int x, int y, const char* text) {
 
 #ifdef USE_X68000
 void drawarcx(int x1, int y1, int w, int h, int start_angle, int sweep_angle, COLORREF color) {
+    g_xargs[0] = x1 + w / 2;
+    g_xargs[1] = y1 + h / 2;
+    g_xargs[2] = h / 2;
+    g_xargs[3] = color;
+    g_xargs[4] = start_angle;
+    g_xargs[5] = start_angle + sweep_angle;
+    g_xargs[6] = h * 256 / w; // aspect_ratio = h / w * 256
     asm(
-        "move.l   %0, g_x1\n\t"
-        "move.l   %1, g_y1\n\t"
-        "move.l   %2, g_w\n\t"
-        "move.l   %3, g_h\n\t"
-        "move.l   %4, g_start_angle\n\t"
-        "move.l   %5, g_sweep_angle\n\t"
-        "move.w   %6, g_color\n\t"
-
-        "clr.l	  -(%%sp)\n\t"
-        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードへ)
-        "move.l   %%d0, (%%sp)\n\t"
-
-        "move.w   g_color, -(%%sp)\n\t"
-        "move.l   g_sweep_angle, -(%%sp)\n\t"
-        "move.l   g_start_angle, -(%%sp)\n\t"
-        "move.l   g_h, -(%%sp)\n\t"
-        "move.l   g_w, -(%%sp)\n\t"
-        "move.l   g_y1, -(%%sp)\n\t"
-        "move.l   g_x1, -(%%sp)\n\t"
-        "move.l   #0, -(%%sp)\n\t"
-        "jsr      drawarcx_a\n\t"
-        "add.l    #30,%%sp\n\t"
-
-        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードから戻る)
-        "addq.l   #4, %%sp\n\t"
-        :                        // 出力
-    : "r"(x1), "r"(y1), "r"(w), "r"(h), "r"(start_angle), "r"(sweep_angle), "r"(color) // 入力
-        : "d0"                   // 使用するレジスタ
+        "move.l #0xbb, %%d0\n\t" // _CIRCLE
+        "lea    g_xargs, %%a1\n\t"    // a1 = [cx, cy, r, color, start_angle, end_angle, aspect_ratio]
+        "trap   #15\n\t"
+        :
+    :                        // 入力
+        : "d0", "a1"             // 使用するレジスタ
         );
 }
 void drawpiex(int x1, int y1, int w, int h, int start_angle, int sweep_angle, COLORREF color) {
+    g_xargs[0] = x1 + w / 2;
+    g_xargs[1] = y1 + h / 2;
+    g_xargs[2] = h / 2;
+    g_xargs[3] = color;
+    g_xargs[4] = -start_angle;
+    g_xargs[5] = -start_angle - sweep_angle;
+    g_xargs[6] = h * 256 / w; // aspect_ratio = h / w * 256
     asm(
-        "move.l   %0, g_x1\n\t"
-        "move.l   %1, g_y1\n\t"
-        "move.l   %2, g_w\n\t"
-        "move.l   %3, g_h\n\t"
-        "move.l   %4, g_start_angle\n\t"
-        "move.l   %5, g_sweep_angle\n\t"
-        "move.w   %6, g_color\n\t"
-
-        "clr.l	  -(%%sp)\n\t"
-        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードへ)
-        "move.l   %%d0, (%%sp)\n\t"
-
-        "move.w   g_color, -(%%sp)\n\t"
-        "move.l   g_sweep_angle, -(%%sp)\n\t"
-        "move.l   g_start_angle, -(%%sp)\n\t"
-        "move.l   g_h, -(%%sp)\n\t"
-        "move.l   g_w, -(%%sp)\n\t"
-        "move.l   g_y1, -(%%sp)\n\t"
-        "move.l   g_x1, -(%%sp)\n\t"
-        "move.l   #0, -(%%sp)\n\t"
-        "jsr      drawpiex_a\n\t"
-        "add.l    #30,%%sp\n\t"
-
-        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードから戻る)
-        "addq.l   #4, %%sp\n\t"
-        :                        // 出力
-    : "r"(x1), "r"(y1), "r"(w), "r"(h), "r"(start_angle), "r"(sweep_angle), "r"(color) // 入力
-        : "d0"                   // 使用するレジスタ
+        "move.l #0xbb, %%d0\n\t" // _CIRCLE
+        "lea    g_xargs, %%a1\n\t"    // a1 = [cx, cy, r, color, start_angle, end_angle, aspect_ratio]
+        "trap   #15\n\t"
+        :
+    :                        // 入力
+        : "d0", "a1"             // 使用するレジスタ
         );
 }
 void drawroundedrectanglex(int x1, int y1, int w, int h, int rx, int ry, COLORREF color) {
-    asm(
-        "move.l   %0, g_x1\n\t"
-        "move.l   %1, g_y1\n\t"
-        "move.l   %2, g_w\n\t"
-        "move.l   %3, g_h\n\t"
-        "move.l   %4, g_rx\n\t"
-        "move.l   %5, g_ry\n\t"
-        "move.w   %6, g_color\n\t"
-
-        "clr.l	  -(%%sp)\n\t"
-        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードへ)
-        "move.l   %%d0, (%%sp)\n\t"
-
-        "move.w   g_color, -(%%sp)\n\t"
-        "move.l   g_ry, -(%%sp)\n\t"
-        "move.l   g_rx, -(%%sp)\n\t"
-        "move.l   g_h, -(%%sp)\n\t"
-        "move.l   g_w, -(%%sp)\n\t"
-        "move.l   g_y1, -(%%sp)\n\t"
-        "move.l   g_x1, -(%%sp)\n\t"
-        "move.l   #0, -(%%sp)\n\t"
-        "jsr      drawroundedrectanglex_a\n\t"
-        "add.l    #30,%%sp\n\t"
-
-        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードから戻る)
-        "addq.l   #4, %%sp\n\t"
-        :                        // 出力
-    : "r"(x1), "r"(y1), "r"(w), "r"(h), "r"(rx), "r"(ry), "r"(color) // 入力
-        : "d0"                   // 使用するレジスタ
-        );
+    int dx = rx * 2;
+    int dy = ry * 2;
+    drawlinex(x1 + rx, y1, x1 + w - rx, y1, color);
+    drawlinex(x1 + rx, y1 + h, x1 + w - rx, y1 + h, color);
+    drawlinex(x1, y1 + ry, x1, y1 + h - ry, color);
+    drawlinex(x1 + w, y1 + ry, x1 + w, y1 + h - ry, color);
+    drawarcx(x1, y1, dx, dy, 180, 90, color);
+    drawarcx(x1 + w - dx, y1, dx, dy, 270, 90, color);
+    drawarcx(x1, y1 + h - dy, dx, dy, 90, 90, color);
+    drawarcx(x1 + w - dx, y1 + h - dy, dx, dy, 0, 90, color);
 }
 void fillellipsex(int x1, int y1, int w, int h, COLORREF color) {
     asm(
@@ -2062,6 +2012,7 @@ void paint_cmd(HWND hwnd) {
         draw_cmd(hdc, cmd);
         g_drawQueue.pop();
     }
+    EndPaint(hwnd, &ps);
 #endif
 }
 
