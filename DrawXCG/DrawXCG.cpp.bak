@@ -29,10 +29,6 @@
 #include "DrawXCG.h"
 #include "CommandInterpreter.h"
 
-#ifdef USE_X68000
-#include "xdraw.h"
-#endif
-
 void print_command(const DrawCommand& cmd) {
     printf("Command: type=%d, color=%d, x1=%d, y1=%d, x2=%d, y2=%d, x3=%d, y3=%d, w=%d, h=%d, w2=%d, rx=%d, ry=%d, "
         "start_angle=%d, sweep_angle=%d, r=%d, hbyw=%d, end_angle=%d, sc1=%d, sc2=%d, sc3=%d, sc4=%d, page=%d, "
@@ -99,7 +95,7 @@ int16_t SetPixel_cmd(int16_t hdc_, int16_t x, int16_t y, int16_t color) {
 #endif
 }
 
-#ifdef USE_X68000
+
 int pointx(int x1, int y1);
 void psetx(int x1, int y1, int color);
 int strcpy_s(char* dest, size_t size, const char* src) {
@@ -137,14 +133,220 @@ COLORREF parseColor(char* s) {
 #endif
 
 #ifdef USE_X68000
+
+
+void drawlinex(int x1, int y1, int x2, int y2, COLORREF color)
+{
+    asm(
+        "move.l   %0, g_x1\n\t"
+        "move.l   %1, g_y1\n\t"
+        "move.l   %2, g_x2\n\t"
+        "move.l   %3, g_y2\n\t"
+        "move.w   %4, g_color\n\t"
+        "clr.l	  -(%%sp)\n\t"
+        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードへ)
+        "move.l   %%d0, (%%sp)\n\t"
+
+        "move.w   g_color, -(%%sp)\n\t"
+        "move.l   g_y2, -(%%sp)\n\t"
+        "move.l   g_x2, -(%%sp)\n\t"
+        "move.l   g_y1, -(%%sp)\n\t"
+        "move.l   g_x1, -(%%sp)\n\t"
+        "move.l   #0, -(%%sp)\n\t"
+        "jsr     drawlinex_a\n\t"
+        "add.l    #22,%%sp\n\t"
+
+        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードから戻る)
+        "addq.l   #4, %%sp\n\t"
+        :
+    : "r"(x1), "r"(y1), "r"(x2), "r"(y2), "r"(color) // 入力
+        : "d0"                                           // 使用するレジスタ
+        );
+}
+// グラフィック画面に長方形を描画
+void drawbox(uint16_t * data)
+{
+    global_copy_args(data, 6); // 引数をグローバル変数にコピー
+    asm(
+        "move.l #0xb9, %%d0\n\t" // _BOX
+        "lea    g_xargs, %%a1\n\t" // a1 = [x1, y1, x2, y2, color, style]
+        "trap   #15\n\t"
+        :
+    :                        // 入力
+        : "d0", "a1"             // 使用するレジスタ
+        );
+}
+void drawboxx(int x1, int y1, int w, int h, COLORREF color)
+{
+    asm(
+        "move.l   %0, %%d1\n\t"
+        "move.l   %1, %%d2\n\t"
+        "move.l   %2, %%d3\n\t"
+        "move.l   %3, %%d4\n\t"
+        "move.l   %4, %%d5\n\t"
+        "clr.l	  -(%%sp)\n\t"
+        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードへ)
+        "move.l   %%d0, (%%sp)\n\t"
+
+        "movea.l  %%d1, %%a0\n\t"
+        "adda.l   %%d1, %%a0\n\t"  // a0 = x1 * 2
+        "moveq.l  #10, %%d0\n\t"
+        "add.l    g_gsize, %%d0\n\t"
+        "lsl.l    %%d0, %%d2\n\t"  // d2 = y1 * (1024 << g_gsize)
+        "adda.l   %%d2, %%a0\n\t"  // a0 = x1 * 2 + y1 * (1024 << g_gsize)
+        "adda.l   g_gaddr, %%a0\n\t" // a0 = g_gaddr + x1 * 2 + y1 * (1024 << g_gsize)
+        "move.l   %%a0, %%a1\n\t"
+
+        "move.l   %%a0, -(%%sp)\n\t"
+
+        "move.l   %%d4, %%d2\n\t"
+        "lsl.l    %%d0, %%d2\n\t"  // d2 = h * (1024 << g_gsize)
+        "adda.l   %%d2, %%a1\n\t"  // a1 = x1 * 2 + (y1 + h) * (1024 << g_gsize)
+
+        "move.l   %%d3, %%d6\n\t"  // d6 = w (x方向のカウンター)
+        "boxxxlp:\n\t"
+        "move.w   %%d5, (%%a0)+\n\t"
+        "move.w   %%d5, (%%a1)+\n\t"
+        "dbra     %%d6, boxxxlp\n\t" // x方向のループ
+
+        "move.l   (%%sp)+, %%a0\n\t" // a0 = g_gaddr + x1 * 2 + y1 * (1024 << g_gsize)
+        "move.l   %%a0, %%a1\n\t"
+        "adda.l   %%d3, %%a1\n\t"
+        "adda.l   %%d3, %%a1\n\t"  // a1 = g_gaddr + (x1 + w) * 2 + y1 * (1024 << g_gsize)
+
+        "moveq.l  #1, %%d2\n\t"
+        "lsl.l    %%d0, %%d2\n\t"  // d2 = (1024 << g_gsize) (y方向の差分)
+
+        "move.l   %%d4, %%d7\n\t"  // d7 = h (y方向のカウンター)
+        "boxxylp:\n\t"
+        "move.w   %%d5, (%%a0)\n\t"
+        "adda.l   %%d2, %%a0\n\t"
+        "move.w   %%d5, (%%a1)\n\t"
+        "adda.l   %%d2, %%a1\n\t"
+        "dbra     %%d7, boxxylp\n\t" // y方向のループ
+
+        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードから戻る)
+        "addq.l   #4,%%sp\n\t"
+        :
+    : "r"(x1), "r"(y1), "r"(w), "r"(h), "r"(color) // 入力
+        : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "a0", "a1" // 使用するレジスタ
+        );
+}
+// グラフィック画面の長方形を塗りつぶす
+void fillbox(uint16_t * data)
+{
+    global_copy_args(data, 5); // 引数をグローバル変数にコピー
+    asm(
+        "move.l #0xba, %%d0\n\t" // _FILL
+        "lea    g_xargs, %%a1\n\t" // a1 = [x1, y1, x2, y2, color]
+        "trap   #15\n\t"
+        :
+    :                        // 入力
+        : "d0", "a1"             // 使用するレジスタ
+        );
+}
+void fillboxx(int x1, int y1, int w, int h, COLORREF color)
+{
+    asm(
+        "move.l   %0, %%d1\n\t"
+        "move.l   %1, %%d2\n\t"
+        "move.l   %2, %%d3\n\t"
+        "move.l   %3, %%d4\n\t"
+        "move.l   %4, %%d5\n\t"
+
+        "clr.l	  -(%%sp)\n\t"
+        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードへ)
+        "move.l   %%d0, (%%sp)\n\t"
+
+        "movea.l  %%d1, %%a0\n\t"
+        "adda.l   %%d1, %%a0\n\t"  // a0 = x1 * 2
+        "moveq.l  #10, %%d0\n\t"
+        "add.l    g_gsize, %%d0\n\t"
+        "lsl.l    %%d0, %%d2\n\t"  // d2 = y1 * (1024 << g_gsize)
+        "adda.l   %%d2, %%a0\n\t"  // a0 = x1 * 2 + y1 * (1024 << g_gsize)
+        "adda.l   g_gaddr, %%a0\n\t" // a0 = g_gaddr + x1 * 2 + y1 * (1024 << g_gsize)
+        "move.l   %%a0, %%a1\n\t"
+
+        "moveq.l  #1, %%d2\n\t"
+        "lsl.l    %%d0, %%d2\n\t"  // d2 = (1024 << g_gsize) (y方向の差分)
+
+        "move.l   %%d4, %%d7\n\t"  // d7 = h (y方向のカウンター)
+        "fillxylp:\n\t"
+        "move.l   %%d3, %%d6\n\t"  // d6 = w (x方向のカウンター)
+        "fillxxlp:\n\t"
+
+        "move.w   %%d5, (%%a0)+\n\t"
+
+        "dbra     %%d6, fillxxlp\n\t" // x方向のループ
+        "adda.l   %%d2, %%a1\n\t"
+        "move.l   %%a1, %%a0\n\t"
+        "dbra     %%d7, fillxylp\n\t" // y方向のループ
+
+        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードから戻る)
+        "addq.l   #4,%%sp\n\t"
+        :
+    : "r"(x1), "r"(y1), "r"(w), "r"(h), "r"(color) // 入力
+        : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "a0", "a1" // 使用するレジスタ
+        );
+}
+// グラフィック画面に楕円を描画
+void drawcircle(int16_t * data)
+{
+    global_copy_args(data, 7); // 引数をグローバル変数にコピー
+    asm(
+        "move.l #0xbb, %%d0\n\t" // _CIRCLE
+        "lea    g_xargs, %%a1\n\t"    // a1 = [cx, cy, r, color, start_angle, end_angle, aspect_ratio]
+        "trap   #15\n\t"
+        :
+    :                        // 入力
+        : "d0", "a1"             // 使用するレジスタ
+        );
+}
+// グラフィック画面の指定した場所を塗りつぶす
+void paint(PaintStruct * data)
+{
+    g_paint.x = data->x;
+    g_paint.y = data->y;
+    g_paint.color = data->color;
+    g_paint.start_work = data->start_work;
+    g_paint.end_work = data->end_work;
+    asm(
+        "move.l #0xbc, %%d0\n\t" // _PAINT
+        "lea    p_paint, %%a1\n\t"    // a1 = [x, y, color, start_work, end_work]
+        "trap   #15\n\t"
+        :
+    :                        // 入力
+        : "d0", "a1"             // 使用するレジスタ
+        );
+}
+// グラフィック画面に文字列を表示する
+void drawstring(DrawStringStruct * data)
+{
+    g_draw_string.x = data->x;
+    g_draw_string.y = data->y;
+    g_draw_string.str = data->str;
+    g_draw_string.mx = data->mx;
+    g_draw_string.my = data->my;
+    g_draw_string.color = data->color;
+    g_draw_string.font_size = data->font_size;
+    g_draw_string.rotation = data->rotation;
+    asm(
+        "move.l #0xbd, %%d0\n\t" // _SYMBOL
+        "lea    p_draw_string, %%a1\n\t"    // a1 = [x, y, str, mx, my, color, font_size, rotation]
+        "trap   #15\n\t"
+        :
+    :                        // 入力
+        : "d0", "a1"             // 使用するレジスタ
+        );
+}
 // アセンブラのテスト
 void test()
 {
-    //for (int i = 0; i < 4; i++) {
-    //    for (int j = 0; j < 4; j++) {
-    //        fillboxx(i * 100, j * 100, 100, 100, i * 4 + j);
-    //    }
-    //}
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            fillboxx(i * 100, j * 100, 100, 100, i * 4 + j);
+        }
+    }
 }
 
 uint16_t default_line_style = 0xffff; // デフォルトの線のスタイル
@@ -722,6 +924,181 @@ void DrawTextOutW(HDC hdc, int x, int y, const char* text) {
 }
 #endif
 
+#ifdef USE_X68000
+void drawarcx(int x1, int y1, int w, int h, int start_angle, int sweep_angle, COLORREF color) {
+    g_xargs[0] = x1 + w / 2;
+    g_xargs[1] = y1 + h / 2;
+    g_xargs[2] = h / 2;
+    g_xargs[3] = color;
+    g_xargs[4] = start_angle;
+    g_xargs[5] = start_angle + sweep_angle;
+    g_xargs[6] = h * 256 / w; // aspect_ratio = h / w * 256
+    asm(
+        "move.l #0xbb, %%d0\n\t" // _CIRCLE
+        "lea    g_xargs, %%a1\n\t"    // a1 = [cx, cy, r, color, start_angle, end_angle, aspect_ratio]
+        "trap   #15\n\t"
+        :
+    :                        // 入力
+        : "d0", "a1"             // 使用するレジスタ
+        );
+}
+void drawpiex(int x1, int y1, int w, int h, int start_angle, int sweep_angle, COLORREF color) {
+    g_xargs[0] = x1 + w / 2;
+    g_xargs[1] = y1 + h / 2;
+    g_xargs[2] = h / 2;
+    g_xargs[3] = color;
+    g_xargs[4] = -start_angle;
+    g_xargs[5] = -start_angle - sweep_angle;
+    g_xargs[6] = h * 256 / w; // aspect_ratio = h / w * 256
+    asm(
+        "move.l #0xbb, %%d0\n\t" // _CIRCLE
+        "lea    g_xargs, %%a1\n\t"    // a1 = [cx, cy, r, color, start_angle, end_angle, aspect_ratio]
+        "trap   #15\n\t"
+        :
+    :                        // 入力
+        : "d0", "a1"             // 使用するレジスタ
+        );
+}
+void drawroundedrectanglex(int x1, int y1, int w, int h, int rx, int ry, COLORREF color) {
+    int dx = rx * 2;
+    int dy = ry * 2;
+    drawlinex(x1 + rx, y1, x1 + w - rx, y1, color);
+    drawlinex(x1 + rx, y1 + h, x1 + w - rx, y1 + h, color);
+    drawlinex(x1, y1 + ry, x1, y1 + h - ry, color);
+    drawlinex(x1 + w, y1 + ry, x1 + w, y1 + h - ry, color);
+    drawarcx(x1, y1, dx, dy, 180, 90, color);
+    drawarcx(x1 + w - dx, y1, dx, dy, 270, 90, color);
+    drawarcx(x1, y1 + h - dy, dx, dy, 90, 90, color);
+    drawarcx(x1 + w - dx, y1 + h - dy, dx, dy, 0, 90, color);
+}
+void fillellipsex(int x1, int y1, int w, int h, COLORREF color) {
+    asm(
+        "move.l   %0, g_x1\n\t"
+        "move.l   %1, g_y1\n\t"
+        "move.l   %2, g_w\n\t"
+        "move.l   %3, g_h\n\t"
+        "move.l   %4, g_color\n\t"
+
+        "clr.l	  -(%%sp)\n\t"
+        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードへ)
+        "move.l   %%d0, (%%sp)\n\t"
+
+        "move.l   g_color, -(%%sp)\n\t"
+        "move.l   g_h, -(%%sp)\n\t"
+        "move.l   g_w, -(%%sp)\n\t"
+        "move.l   g_y1, -(%%sp)\n\t"
+        "move.l   g_x1, -(%%sp)\n\t"
+        "move.l   #0, -(%%sp)\n\t"
+        //"jsr      fillellipsex_a\n\t"
+        "jsr      fillellipse_asm\n\t"
+        "add.l    #24,%%sp\n\t"
+
+        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードから戻る)
+        "addq.l   #4, %%sp\n\t"
+        :                        // 出力
+        : "r"(x1), "r"(y1), "r"(w), "r"(h), "r"(color) // 入力
+        : "d0"                   // 使用するレジスタ
+        );
+}
+void fillroundedrectanglex(int x1, int y1, int w, int h, int rx, int ry, COLORREF color) {
+    asm(
+        "move.l   %0, g_x1\n\t"
+        "move.l   %1, g_y1\n\t"
+        "move.l   %2, g_w\n\t"
+        "move.l   %3, g_h\n\t"
+        "move.l   %4, g_rx\n\t"
+        "move.l   %5, g_ry\n\t"
+        "move.l   %6, g_color\n\t"
+
+        "clr.l	  -(%%sp)\n\t"
+        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードへ)
+        "move.l   %%d0, (%%sp)\n\t"
+
+        "move.l   g_color, -(%%sp)\n\t"
+        "move.l   g_ry, -(%%sp)\n\t"
+        "move.l   g_rx, -(%%sp)\n\t"
+        "move.l   g_h, -(%%sp)\n\t"
+        "move.l   g_w, -(%%sp)\n\t"
+        "move.l   g_y1, -(%%sp)\n\t"
+        "move.l   g_x1, -(%%sp)\n\t"
+        "move.l   #0, -(%%sp)\n\t"
+        //"jsr      fillroundedrectanglex_a\n\t"
+        "jsr      fillroundedrectangle_asm\n\t"
+        "add.l    #32,%%sp\n\t"
+
+        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードから戻る)
+        "addq.l   #4, %%sp\n\t"
+        :                        // 出力
+    : "r"(x1), "r"(y1), "r"(w), "r"(h), "r"(rx), "r"(ry), "r"(color) // 入力
+        : "d0"                   // 使用するレジスタ
+        );
+}
+void filltrapezoidx(int x1, int y1, int x2, int y2, int w1, int w2, COLORREF color) {
+    asm(
+        "move.l   %0, g_x1\n\t"
+        "move.l   %1, g_y1\n\t"
+        "move.l   %2, g_x2\n\t"
+        "move.l   %3, g_y2\n\t"
+        "move.l   %4, g_w\n\t"
+        "move.l   %5, g_w2\n\t"
+        "move.l   %6, g_color\n\t"
+
+        "clr.l	  -(%%sp)\n\t"
+        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードへ)
+        "move.l   %%d0, (%%sp)\n\t"
+
+        "move.l   g_color, -(%%sp)\n\t"
+        "move.l   g_w2, -(%%sp)\n\t"
+        "move.l   g_w, -(%%sp)\n\t"
+        "move.l   g_y2, -(%%sp)\n\t"
+        "move.l   g_x2, -(%%sp)\n\t"
+        "move.l   g_y1, -(%%sp)\n\t"
+        "move.l   g_x1, -(%%sp)\n\t"
+        "move.l   #0, -(%%sp)\n\t"
+        "jsr      filltrapezoid_asm\n\t"
+        "add.l    #32,%%sp\n\t"
+
+        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードから戻る)
+        "addq.l   #4, %%sp\n\t"
+        :                        // 出力
+    : "r"(x1), "r"(y1), "r"(x2), "r"(y2), "r"(w1), "r"(w2), "r"(color) // 入力
+        : "d0"                   // 使用するレジスタ
+        );
+}
+void filltrianglex(int x1, int y1, int x2, int y2, int x3, int y3, COLORREF color) {
+    asm(
+        "move.l   %0, g_x1\n\t"
+        "move.l   %1, g_y1\n\t"
+        "move.l   %2, g_x2\n\t"
+        "move.l   %3, g_y2\n\t"
+        "move.l   %4, g_x3\n\t"
+        "move.l   %5, g_y3\n\t"
+        "move.l   %6, g_color\n\t"
+
+        "clr.l	  -(%%sp)\n\t"
+        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードへ)
+        "move.l   %%d0, (%%sp)\n\t"
+
+        "move.l   g_color, -(%%sp)\n\t"
+        "move.l   g_y3, -(%%sp)\n\t"
+        "move.l   g_x3, -(%%sp)\n\t"
+        "move.l   g_y2, -(%%sp)\n\t"
+        "move.l   g_x2, -(%%sp)\n\t"
+        "move.l   g_y1, -(%%sp)\n\t"
+        "move.l   g_x1, -(%%sp)\n\t"
+        "move.l   #0, -(%%sp)\n\t"
+        "jsr      filltriangle_asm\n\t"
+        "add.l    #32,%%sp\n\t"
+
+        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードから戻る)
+        "addq.l   #4, %%sp\n\t"
+        :                        // 出力
+    : "r"(x1), "r"(y1), "r"(x2), "r"(y2), "r"(x3), "r"(y3), "r"(color) // 入力
+        : "d0"                   // 使用するレジスタ
+        );
+}
+#endif
+
 #ifdef PIXEL_DRAW_MODE
 void DirectDrawLine__(HDC hdc, int x1, int y1, int x2, int y2, COLORREF color) {
     int w = x2 - x1;
@@ -970,6 +1347,49 @@ void DirectDrawArcTo(HDC hdc, int x1, int y1, int w, int h, int start_angle, int
     }
     DirectDrawArcLineTo(hdc, cx, cy, w, h, start_angle + sweep_angle, color);
 }
+//void DirectDrawArcTo_calc(HDC hdc, int x1, int y1, int w, int h, int start_angle, int sweep_angle, COLORREF color) {
+//    int cx = x1 + w / 2;
+//    int cy = y1 + h / 2;
+//    for (int a = start_angle; a < start_angle + sweep_angle; a += 5) {
+//        int x = cx + (int)(cos(deg_to_rad(a)) * w / 2);
+//        int y = cy - (int)(sin(deg_to_rad(a)) * h / 2);
+//        DirectDrawLineTo(hdc, x, y, color);
+//    }
+//    {
+//        int a = start_angle + sweep_angle;
+//        int x = cx + (int)(cos(deg_to_rad(a)) * w / 2);
+//        int y = cy - (int)(sin(deg_to_rad(a)) * h / 2);
+//        DirectDrawLineTo(hdc, x, y, color);
+//    }
+//}
+//inline void DirectDrawArcLineTo(HDC hdc, int x1, int y1, int w, int h, int a, COLORREF color) {
+//    int cx = x1 + w / 2;
+//    int cy = y1 + h / 2;
+//    int x = cx + (int)(tab_cos(a) * w / 2);
+//    int y = cy - (int)(tab_sin(a) * h / 2);
+//    DirectDrawLineTo(hdc, x, y, color);
+//}
+//void DirectDrawArcTo(HDC hdc, int x1, int y1, int w, int h, int start_angle, int sweep_angle, COLORREF color) {
+//    for (int a = start_angle; a < start_angle + sweep_angle; a += 5) {
+//        DirectDrawArcLineTo(hdc, x1, y1, w, h, a, color);
+//    }
+//    DirectDrawArcLineTo(hdc, x1, y1, w, h, start_angle + sweep_angle, color);
+//}
+//void DirectDrawArcTo(HDC hdc, int x1, int y1, int w, int h, int start_angle, int sweep_angle, COLORREF color) {
+//    int cx = x1 + w / 2;
+//    int cy = y1 + h / 2;
+//    for (int a = start_angle; a < start_angle + sweep_angle; a += 5) {
+//        int x = cx + (int)(tab_cos(a) * w / 2);
+//        int y = cy - (int)(tab_sin(a) * h / 2);
+//        DirectDrawLineTo(hdc, x, y, color);
+//    }
+//    {
+//        int a = start_angle + sweep_angle;
+//        int x = cx + (int)(tab_cos(a) * w / 2);
+//        int y = cy - (int)(tab_sin(a) * h / 2);
+//        DirectDrawLineTo(hdc, x, y, color);
+//    }
+//}
 void DirectDrawArc(HDC hdc, int x1, int y1, int w, int h, int start_angle, int sweep_angle, COLORREF color) {
 #ifndef USE_X68000
     ConOutput co_cout(hOutput);
@@ -1034,6 +1454,13 @@ inline void DrawHLine(HDC hdc, int x1, int y1, int w, COLORREF color) {
         SetPixel(hdc, x, y1, color);
     }
 }
+//void DrawHLine(HDC hdc, int x1, int y1, int w, COLORREF color) {
+//    HPEN hPen = CreatePen(PS_SOLID, 1, color);
+//    SelectObject(hdc, hPen);
+//    MoveToEx(hdc, x1, y1, NULL);
+//    LineTo(hdc, x1 + w, y1);
+//    DeleteObject(hPen);
+//}
 #endif
 void DirectFillEllipse_pixel(HDC hdc, int x1, int y1, int w, int h, COLORREF color) {
     int cx = x1 + w / 2;
@@ -1228,6 +1655,23 @@ void DirectFillPie(HDC hdc, int x1, int y1, int w, int h, int start_angle, int s
     // 扇型の左上1/4の領域を塗りつぶす
     DirectFillQuarterPie(hdc, x1, y1, w, h, start_angle, sweep_angle, 1, 1, color);
 }
+void DirectFillWTriangle(HDC hdc, int x1, int y1, int x2, int y2, int w, COLORREF color) {
+    // 塗りつぶし三角形を描く
+    //printf("DirectFillWTriangle: (%d, %d), (%d, %d), w=%d\n", x1, y1, x2, y2, w);
+    if (y1 != y2) {
+        bool down = y1 < y2;
+        int dy = down ? 1 : -1;
+        for (int y = y1; down ? y < y2 : y > y2; y += dy) {
+            bool right = w > 0;
+            int dx = right ? 1 : -1;
+            int sx = x1 + (x2 - x1) * (y - y1) / (y2 - y1);
+            int ex = x1 + (x2 - x1 + w) * (y - y1) / (y2 - y1);
+            for (int x = sx; right ? x < ex : x > ex; x += dx) {
+                SetPixel(hdc, x, y, color);
+            }
+        }
+    }
+}
 int get_coordinate(int x1, int y1, int x2, int y2, int y) {
     // 直線の方程式からx座標を計算
     if (y1 == y2) return x1; // 水平線の場合
@@ -1295,283 +1739,6 @@ void paint_cmd(HWND hwnd) {
 #endif
 }
 
-void digital_test(HDC hdc, int n, int xi, int yi) {
-    int fw = 100;
-    int fh = 150;
-    int x = fw * xi;
-    int y = fh * yi;
-    double r = 0.9;
-    double w = fw * r;
-    double h = fh * r;
-    double rw1 = 0.15;
-    double rh1 = 0.1;
-    double rw2 = 0.15;
-    double rh2 = 0.2;
-    double rx1 = 0.5;
-    double rx3 = 0.1;
-    double rx4 = 0.6;
-    double rx7 = 0.3;
-    double ry4 = 0.7;
-    if (n == 0 || n == 2 || n == 3 || n == 6 || n == 8 || n == 9) {
-		// 上の横線
-        DirectFillTrapezoid(hdc,
-            (int)(x + w * rw1),
-            (int)(y),
-            (int)(x),
-            (int)(y + h * rh1),
-            (int)(w - w * rw1 * 2),
-            (int)(w),
-            RGB(255, 0, 0));
-    }
-    if (n == 0 || n == 3 || n == 5 || n == 6 || n == 8 || n == 9) {
-		// 下の横線
-        DirectFillTrapezoid(hdc,
-            (int)(x),
-            (int)(y + h - h * rh1),
-            (int)(x + w * rw1),
-            (int)(y + h),
-            (int)(w),
-            (int)(w - w * rw1 * 2),
-            RGB(255, 0, 0));
-    }
-    if (n == 3) {
-		// 中央の横線
-        DirectFillTrapezoid(hdc,
-            (int)(x + w * rx3),
-            (int)(y + h / 2 - h * rh1 * 0.5),
-            (int)(x + w * rx3),
-            (int)(y + h / 2),
-            (int)(w - w * rx3),
-            (int)(w - w * rx3 - w * rw1),
-            RGB(255, 0, 0));
-        DirectFillTrapezoid(hdc,
-            (int)(x + w * rx3),
-            (int)(y + h / 2),
-            (int)(x + w * rx3),
-            (int)(y + h / 2 + h * rh1 * 0.5),
-            (int)(w - w * rx3 - w * rw1),
-            (int)(w - w * rx3),
-            RGB(255, 0, 0));
-    }
-    if (n == 8) {
-		// 中央の横線
-        DirectFillTrapezoid(hdc,
-            (int)(x),
-            (int)(y + h / 2 - h * rh1 * 0.5),
-            (int)(x + w * rw1),
-            (int)(y + h / 2),
-            (int)(w),
-            (int)(w - w * rw1 * 2),
-            RGB(255, 0, 0));
-        DirectFillTrapezoid(hdc,
-            (int)(x + w * rw1),
-            (int)(y + h / 2),
-            (int)(x),
-            (int)(y + h / 2 + h * rh1 * 0.5),
-            (int)(w - w * rw1 * 2),
-            (int)(w),
-            RGB(255, 0, 0));
-    }
-    if (n == 5 || n == 6) {
-        // 中央の横線
-        DirectFillTrapezoid(hdc,
-            (int)(x),
-            (int)(y + h / 2 - h * rh1 * 0.5),
-            (int)(x),
-            (int)(y + h / 2 + h * rh1 * 0.5),
-            (int)(w - w * rw1),
-            (int)(w),
-            RGB(255, 0, 0));
-    }
-    if (n == 9) {
-        // 中央の横線
-        DirectFillTrapezoid(hdc,
-            (int)(x),
-            (int)(y + h / 2 - h * rh1 * 0.5),
-            (int)(x + w * rw1),
-            (int)(y + h / 2 + h * rh1 * 0.5),
-            (int)(w),
-            (int)(w - w * rw1),
-            RGB(255, 0, 0));
-    }
-    if (n == 0 || n == 6) {
-		// 左の縦線
-        DirectFillRectangle(hdc,
-            (int)(x),
-            (int)(y + h * rh1),
-            (int)(w * rw1),
-            (int)(h - h * rh1 * 2),
-            RGB(255, 0, 0));
-    }
-    if (n == 0 || n == 9) {
-		// 右の縦線
-        DirectFillRectangle(hdc,
-            (int)(x + w - w * rw1),
-            (int)(y + h * rh1),
-            (int)(w * rw1),
-            (int)(h - h * rh1 * 2),
-            RGB(255, 0, 0));
-    }
-    if (n == 1) {
-		// 縦線
-        DirectFillTrapezoid(hdc,
-            (int)(x + w * rx1 - w * rw1 / 2),
-            (int)(y),
-            (int)(x + w * rx1 - w * rw1 / 2 - w * rw2),
-            (int)(y + h * rh1),
-            (int)(0),
-            (int)(w * rw2),
-            RGB(255, 0, 0));
-        DirectFillRectangle(hdc,
-            (int)(x + w * rx1 - w * rw1 / 2),
-            (int)(y),
-            (int)(w * rw1),
-            (int)(h),
-            RGB(255, 0, 0));
-    }
-    if (n == 4) {
-		// 縦線
-        DirectFillRectangle(hdc,
-            (int)(x + w * rx4 - w * rw1 / 2),
-            (int)(y),
-            (int)(w * rw1),
-            (int)(h),
-            RGB(255, 0, 0));
-    }
-    if (n == 2) {
-		// 下の横線
-        DirectFillRectangle(hdc,
-            (int)(x),
-            (int)(y + h - h * rh1),
-            (int)(w),
-            (int)(h * rh1),
-            RGB(255, 0, 0));
-    }
-    if (n == 4) {
-		// 上の横線
-        DirectFillRectangle(hdc,
-            (int)(x),
-            (int)(y + h * ry4 - h * rh1 * 0.5),
-            (int)(w),
-            (int)(h * rh1),
-            RGB(255, 0, 0));
-    }
-    if (n == 5 || n == 7) {
-        // 上の横線
-        DirectFillRectangle(hdc,
-            (int)(x),
-            (int)(y),
-            (int)(w),
-            (int)(h * rh1),
-            RGB(255, 0, 0));
-    }
-    if (n == 5 || n == 8 || n == 9) {
-		// 左上の縦線
-        DirectFillRectangle(hdc,
-            (int)(x),
-            (int)(y + h * rh1),
-            (int)(w * rw1),
-            (int)(h / 2 - h * rh1 * 1.5),
-            RGB(255, 0, 0));
-    }
-    if (n == 3 || n == 8) {
-		// 右上の縦線
-        DirectFillRectangle(hdc,
-            (int)(x + w - w * rw1),
-            (int)(y + h * rh1),
-            (int)(w * rw1),
-            (int)(h / 2 - h * rh1 * 1.5),
-            RGB(255, 0, 0));
-    }
-    if (n == 8) {
-		// 左下の縦線
-        DirectFillRectangle(hdc,
-            (int)(x),
-            (int)(y + h / 2 + h * rh1 * 0.5),
-            (int)(w * rw1),
-            (int)(h / 2 - h * rh1 * 1.5),
-            RGB(255, 0, 0));
-    }
-    if (n == 3 || n == 5 || n == 6 || n == 8) {
-		// 右下の縦線
-        DirectFillRectangle(hdc,
-            (int)(x + w - w * rw1),
-            (int)(y + h / 2 + h * rh1 * 0.5),
-            (int)(w * rw1),
-            (int)(h / 2 - h * rh1 * 1.5),
-            RGB(255, 0, 0));
-    }
-    if (n == 2 || n == 3) {
-		// 左上の縦線
-        DirectFillRectangle(hdc,
-            (int)(x),
-            (int)(y + h * rh1),
-            (int)(w * rw1),
-            (int)(h * rh2),
-            RGB(255, 0, 0));
-    }
-    if (n == 2 || n == 6 || n == 7) {
-		// 右上の縦線
-        DirectFillRectangle(hdc,
-            (int)(x + w - w * rw1),
-            (int)(y + h * rh1),
-            (int)(w * rw1),
-            (int)(h * rh2),
-            RGB(255, 0, 0));
-    }
-    if (n == 3 || n == 5 || n == 9) {
-        // 左下の縦線
-        DirectFillRectangle(hdc,
-            (int)(x),
-            (int)(y + h - h * rh1 - h * rh2),
-            (int)(w * rw1),
-            (int)(h * rh2),
-            RGB(255, 0, 0));
-    }
-    if (n == 2) {
-        // 斜めの線
-        DirectFillTrapezoid(hdc,
-            (int)(x + w - w * rw1),
-            (int)(y + h * rh1 + h * rh2),
-            (int)(x),
-            (int)(y + h - h * rh1),
-            (int)(w * rw1),
-            (int)(w * rw1),
-            RGB(255, 0, 0));
-    }
-    if (n == 4) {
-        // 斜めの線
-        DirectFillTrapezoid(hdc,
-            (int)(x + w * rx4 - w * rw1 * 0.5),
-            (int)(y),
-            (int)(x),
-            (int)(y + h * ry4 - h * rh1 * 0.5),
-            (int)(w * rw1),
-            (int)(w * rw1),
-            RGB(255, 0, 0));
-    }
-    if (n == 7) {
-        // 斜めの線
-        DirectFillTrapezoid(hdc,
-            (int)(x + w - w * rw1),
-            (int)(y + h * rh1 + h * rh2),
-            (int)(x + w * rx7 - w * rw1 * 0.5),
-            (int)(y + h),
-            (int)(w * rw1),
-            (int)(w * rw1),
-            RGB(255, 0, 0));
-    }
-    if (n == 10) {
-        // 小数点
-        DirectFillRectangle(hdc,
-            (int)(x + w * rx1 - w * rw1 / 2),
-            (int)(y + h - h * rh1),
-            (int)(w * rw1),
-            (int)(h * rh1),
-            RGB(255, 0, 0));
-    }
-}
-
 void draw_cmd(HDC hdc, DrawCommand & cmd) {
 #ifdef PIXEL_DRAW_MODE // Windowsの機能を使わず直接描画する場合(SetPixelを使う)
     switch (cmd.type) {
@@ -1636,6 +1803,9 @@ void draw_cmd(HDC hdc, DrawCommand & cmd) {
     case DrawType::FillRoundRect:
         DirectFillRoundedRectangle(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.rx, cmd.ry, cmd.color);
         break;
+    case DrawType::FillWTriangle:
+        DirectFillWTriangle(hdc, cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.w, cmd.color);
+        break;
     case DrawType::FillTriangle:
         DirectFillTriangle(hdc, cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.x3, cmd.y3, cmd.color);
         break;
@@ -1672,24 +1842,13 @@ void draw_cmd(HDC hdc, DrawCommand & cmd) {
     case DrawType::Test:
     {
         // テスト用
-        //for (int a = 0; a < 360; a += 10) {
-        //    int r = 100;
-        //    int color = 5;
-        //    int x = cmd.x1 + (int)(r * cos(a * 3.14159 / 180));
-        //    int y = cmd.y1 - (int)(r * sin(a * 3.14159 / 180));
-        //    DirectDrawLine(hdc, cmd.x1, cmd.y1, x, y, color);
-        //}
-        digital_test(hdc, 0, 0, 0);
-        digital_test(hdc, 1, 1, 0);
-        digital_test(hdc, 2, 2, 0);
-        digital_test(hdc, 3, 3, 0);
-        digital_test(hdc, 4, 0, 1);
-        digital_test(hdc, 5, 1, 1);
-        digital_test(hdc, 6, 2, 1);
-        digital_test(hdc, 7, 3, 1);
-        digital_test(hdc, 8, 0, 2);
-        digital_test(hdc, 9, 1, 2);
-        digital_test(hdc, 10, 2, 2);
+        for (int a = 0; a < 360; a += 10) {
+            int r = 100;
+            int color = 5;
+            int x = cmd.x1 + (int)(r * cos(a * 3.14159 / 180));
+            int y = cmd.y1 - (int)(r * sin(a * 3.14159 / 180));
+            DirectDrawLine(hdc, cmd.x1, cmd.y1, x, y, color);
+        }
         break;
     }
     case DrawType::Paint:
@@ -1972,17 +2131,6 @@ int16_t HLine_cmd(int hdc_, int x, int y, int w, int color) {
     return 0;
 }
 
-#ifdef USE_X68000
-#include "xmouse.h"
-#endif
-
-#include "mouse.h"
-
-void run(ConOutput& co_cout) {
-    co_cout << "Mouse Input Mode. Click inside the drawing area. Click out of click area to quit." << co_endl;
-    mouse_recieve();
-}
-
 bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput & co_cerr) {
     const char* commands[] = {
         "exit", "clear", "drawline", "drawstring", "drawrectangle",
@@ -1993,7 +2141,7 @@ bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput
         "apage", "vpage", "wipe", "screen", "window",
         "lineto", "lineinit",
         "xline", "xbox", "xcircle", "xfill", "xpie", "xpaint", "xpset", "xpoint", "xclear",
-        "run", "test", "sine", "opposite"
+        "test", "sine", "opposite"
     };
     const int command_count = sizeof(commands) / sizeof(commands[0]);
     CommandMatchResult result = matchCommand(tokens[0], commands, command_count);
@@ -2302,10 +2450,6 @@ bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput
         cmd.y1 = atoi(tokens[2]);
         cmd.x2 = atoi(tokens[3]);
         cmd.y2 = atoi(tokens[4]);
-    }
-    else if (strcmp(result.command, "run") == 0 && token_count == 1) {
-		run(co_cout);
-        return true;
     }
     else if (strcmp(result.command, "test") == 0 && token_count == 1) {
         cmd.type = DrawType::Test;
