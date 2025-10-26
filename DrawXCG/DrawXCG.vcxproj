@@ -130,6 +130,7 @@
     <ClInclude Include="DotNetControl.h" />
     <ClInclude Include="draw.h" />
     <ClInclude Include="drawasm.h" />
+    <ClInclude Include="drawdigit.h" />
     <ClInclude Include="DrawXCG.h" />
     <ClInclude Include="form.h" />
     <ClInclude Include="framework.h" />

@@ -3,7 +3,6 @@
 //#define PACKED_STRUCT
 #define CONSOLE_IO // コンソール入出力を使用
 #endif
-//#define CONSOLE_IO // コンソール入出力を使用
 
 #define PIXEL_DRAW_MODE // OSの機能を使わない描画
 #define USE_FUNC_TABLE // 関数テーブルを使用
@@ -36,7 +35,7 @@
 void print_command(const DrawCommand& cmd) {
     printf("Command: type=%d, color=%d, x1=%d, y1=%d, x2=%d, y2=%d, x3=%d, y3=%d, w=%d, h=%d, w2=%d, rx=%d, ry=%d, "
         "start_angle=%d, sweep_angle=%d, r=%d, hbyw=%d, end_angle=%d, sc1=%d, sc2=%d, sc3=%d, sc4=%d, page=%d, "
-        "mx=%u, my=%u, font_size=%u, rotation=%u, text='%s'\n",
+        "mx=%u, my=%u, font_size=%u, rotation=%u, number_string_type=%d, text='%s'\n",
         static_cast<int>(cmd.type), cmd.color,
         cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.x3, cmd.y3,
         cmd.w, cmd.h, cmd.w2, cmd.rx, cmd.ry,
@@ -45,7 +44,7 @@ void print_command(const DrawCommand& cmd) {
         cmd.sc1, cmd.sc2, cmd.sc3, cmd.sc4,
         cmd.page,
         cmd.mx, cmd.my, cmd.font_size, cmd.rotation,
-        cmd.text);
+        cmd.number_string_type, cmd.text);
 }
 
 #ifndef USE_X68000
@@ -118,7 +117,6 @@ COLORREF parseColor(char* s) {
 #ifndef USE_X68000
     if (strchr(s, ',') != nullptr) {
         int r, g, b;
-        //sscanf_s(s.c_str(), "%d,%d,%d", &r, &g, &b);
         sscanf_s(s, "%d,%d,%d", &r, &g, &b);
         return RGB(r, g, b);
     }
@@ -140,11 +138,6 @@ COLORREF parseColor(char* s) {
 // アセンブラのテスト
 void test()
 {
-    //for (int i = 0; i < 4; i++) {
-    //    for (int j = 0; j < 4; j++) {
-    //        fillboxx(i * 100, j * 100, 100, 100, i * 4 + j);
-    //    }
-    //}
 }
 
 uint16_t default_line_style = 0xffff; // デフォルトの線のスタイル
@@ -244,42 +237,6 @@ void FillTrapezoid(const DrawCommand & cmd) {
 void FillTriangle(const DrawCommand & cmd) {
     // DirectFillTriangle(hdc, cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.x3, cmd.y3, cmd.color);
     filltrianglex(cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.x3, cmd.y3, cmd.color);
-}
-void XLine(const DrawCommand & cmd) {
-    uint16_t data[6] = { static_cast<uint16_t>(cmd.x1), static_cast<uint16_t>(cmd.y1),
-                         static_cast<uint16_t>(cmd.x2), static_cast<uint16_t>(cmd.y2),
-                         static_cast<uint16_t>(cmd.color), default_line_style };
-    drawline(data);
-}
-void XBox(const DrawCommand & cmd) {
-    uint16_t data[6] = { static_cast<uint16_t>(cmd.x1), static_cast<uint16_t>(cmd.y1),
-                         static_cast<uint16_t>(cmd.x1 + cmd.w), static_cast<uint16_t>(cmd.y1 + cmd.h),
-                         static_cast<uint16_t>(cmd.color), default_line_style };
-    drawbox(data);
-}
-int16_t hw_ratio(int h, int w) {
-    double h_by_w = (double)h / (double)w;
-    return h_by_w * 256;
-}
-void XCircle(const DrawCommand & cmd) {
-    int16_t data[7] = { static_cast<int16_t>(cmd.x1 + cmd.w / 2), static_cast<int16_t>(cmd.y1 + cmd.h / 2),
-                        static_cast<int16_t>(cmd.w / 2), // static_cast<int16_t>(cmd.h / 2),
-                        static_cast<int16_t>(cmd.color), 0, 360,
-                        hw_ratio(cmd.h, cmd.w) };
-    drawcircle(data);
-}
-void XPie(const DrawCommand & cmd) {
-    int16_t data[7] = { static_cast<int16_t>(cmd.x1 + cmd.w / 2), static_cast<int16_t>(cmd.y1 + cmd.h / 2),
-                        static_cast<int16_t>(cmd.w / 2), // static_cast<int16_t>(cmd.h / 2),
-                        static_cast<int16_t>(cmd.color), static_cast<int16_t>(-cmd.start_angle), static_cast<int16_t>(-cmd.start_angle - cmd.sweep_angle),
-                        hw_ratio(cmd.h, cmd.w) };
-    drawcircle(data);
-}
-void XFill(const DrawCommand & cmd) {
-    uint16_t data[5] = { static_cast<uint16_t>(cmd.x1), static_cast<uint16_t>(cmd.y1),
-                         static_cast<uint16_t>(cmd.x1 + cmd.w), static_cast<uint16_t>(cmd.y1 + cmd.h),
-                         static_cast<uint16_t>(cmd.color) };
-    fillbox(data);
 }
 #else
 void DrawLine(const DrawCommand & cmd) {
@@ -428,29 +385,12 @@ void Paint(const DrawCommand & cmd) {
                          static_cast<uint16_t>(cmd.color), work, work + sizeof work };
     paint(&data);
 }
-void XPaint(const DrawCommand & cmd) {
-    char work[1000]; // 適当なサイズのワーク領域
-    PaintStruct data = { static_cast<uint16_t>(cmd.x1), static_cast<uint16_t>(cmd.y1),
-                         static_cast<uint16_t>(cmd.color), work, work + sizeof work };
-    paint(&data);
-}
 void Pset(const DrawCommand & cmd) {
     uint16_t data[3] = { static_cast<uint16_t>(cmd.x1), static_cast<uint16_t>(cmd.y1),
                          static_cast<uint16_t>(cmd.color) };
     pset(data);
 }
-void XPset(const DrawCommand & cmd) {
-    uint16_t data[3] = { static_cast<uint16_t>(cmd.x1), static_cast<uint16_t>(cmd.y1),
-                         static_cast<uint16_t>(cmd.color) };
-    pset(data);
-}
 void Point(DrawCommand & cmd) {
-    uint16_t data[3] = { static_cast<uint16_t>(cmd.x1), static_cast<uint16_t>(cmd.y1),
-                         0 };
-    point(data);
-    cmd.color = data[2]; // 結果をcmd.colorに格納
-}
-void XPoint(DrawCommand & cmd) {
     uint16_t data[3] = { static_cast<uint16_t>(cmd.x1), static_cast<uint16_t>(cmd.y1),
                          0 };
     point(data);
@@ -529,23 +469,12 @@ void Test(DrawCommand & cmd) {
 #endif
 
 #ifdef USE_X68000
+void draw_number_string(HDC hdc, const char* text, int numer_string_type, int x1, int y1, int w, int h, COLORREF color);
 void exec_command_x(DrawCommand& cmd) {
     print_command(cmd); // デバッグ用にコマンドを表示
     switch (cmd.type) {
-    case DrawType::Clear:
-        Clear(cmd);
-        break;
     case DrawType::Line:
         DrawLine(cmd);
-        break;
-    case DrawType::LineTo:
-        DrawLineTo(cmd);
-        break;
-    case DrawType::LineInit:
-        DrawLineInit(cmd);
-        break;
-    case DrawType::String:
-        DrawString(cmd);
         break;
     case DrawType::Rect:
         DrawRectangle(cmd);
@@ -610,32 +539,8 @@ void exec_command_x(DrawCommand& cmd) {
     case DrawType::Window:
         Window(cmd);
         break;
-    case DrawType::XClear:
-        XClear(cmd);
-        break;
-    case DrawType::XLine:
-        XLine(cmd);
-        break;
-    case DrawType::XBox:
-        XBox(cmd);
-        break;
-    case DrawType::XFill:
-        XFill(cmd);
-        break;
-    case DrawType::XCircle:
-        XCircle(cmd);
-        break;
-    case DrawType::XPie:
-        XPie(cmd);
-        break;
-    case DrawType::XPaint:
-        XPaint(cmd);
-        break;
-    case DrawType::XPset:
-        XPset(cmd);
-        break;
-    case DrawType::XPoint:
-        XPoint(cmd);
+    case DrawType::NumberString:
+        draw_number_string(hdc, cmd.text, cmd.number_string_type, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.color);
         break;
     case DrawType::Test:
         Test(cmd);
@@ -647,29 +552,6 @@ void exec_command_x(DrawCommand& cmd) {
 #ifndef USE_X68000
 #include <stack>
 using namespace std;
-void Paint_(HDC hdc, int x, int y, COLORREF bc)
-{
-    stack<POINT> points;
-    points.push(POINT(x, y));
-    while (points.size() > 0)
-    {
-        if (points.size() > 100) {
-            break;
-        }
-        POINT p = points.top();
-        points.pop();
-        int a = p.x, b = p.y;
-        COLORREF c = GetPixel(hdc, a, b);
-        if (c != bc)
-        {
-            SetPixel(hdc, a, b, bc);
-            points.push(POINT(a - 1, b));
-            points.push(POINT(a + 1, b));
-            points.push(POINT(a, b - 1));
-            points.push(POINT(a, b + 1));
-        }
-    }
-}
 void change_color(HDC hdc, int x, int y, COLORREF bc, stack<POINT>&points)
 {
     COLORREF c = GetPixel(hdc, x, y);
@@ -683,21 +565,6 @@ void change_color(HDC hdc, int x, int y, COLORREF bc, stack<POINT>&points)
 }
 void Paint(HDC hdc, int x, int y, COLORREF bc)
 {
-    stack<POINT> points;
-    change_color(hdc, x, y, bc, points);
-    while (points.size() > 0)
-    {
-        if (points.size() > 1000) {
-            // 失敗したときのために、スタックのサイズを制限
-            break;
-        }
-        POINT p = points.top();
-        points.pop();
-        change_color(hdc, p.x - 1, p.y, bc, points);
-        change_color(hdc, p.x + 1, p.y, bc, points);
-        change_color(hdc, p.x, p.y - 1, bc, points);
-        change_color(hdc, p.x, p.y + 1, bc, points);
-    }
 }
 void DrawTextOutW(HDC hdc, int x, int y, const char* text) {
     // char* を wchar_t* に変換
@@ -742,15 +609,6 @@ void DirectDrawLine__(HDC hdc, int x1, int y1, int x2, int y2, COLORREF color) {
     }
 }
 void DirectDrawLine(HDC hdc, int x1, int y1, int x2, int y2, COLORREF color) {
-#ifndef USE_X68000
-    ConOutput co_cout(hOutput);
-    co_cout << "DirectDrawLine" << co_endl;
-    co_cout << "  x1 = " << x1 << co_endl;
-    co_cout << "  y1 = " << y1 << co_endl;
-    co_cout << "  x2 = " << x2 << co_endl;
-    co_cout << "  y2 = " << y2 << co_endl;
-    co_cout << "  color = " << (int)color << co_endl;
-#endif
     int w = x2 - x1;
     int h = y2 - y1;
     if (abs(h) < abs(w)) {
@@ -784,13 +642,6 @@ void DirectDrawLineInit() {
     direct_draw_x = -1;
 }
 void DirectDrawLineTo(HDC hdc, int x2, int y2, COLORREF color) {
-#ifndef USE_X68000
-    ConOutput co_cout(hOutput);
-    co_cout << "DirectDrawLineTo" << co_endl;
-    co_cout << "  x2 = " << x2 << co_endl;
-    co_cout << "  y2 = " << y2 << co_endl;
-    co_cout << "  color = " << (int)color << co_endl;
-#endif
     if (direct_draw_x >= 0) {
         DirectDrawLine(hdc, direct_draw_x, direct_draw_y, x2, y2, color);
     }
@@ -952,17 +803,6 @@ inline void DirectDrawArcLineTo(HDC hdc, int cx, int cy, int w, int h, int a, CO
 //    DirectDrawLineTo(hdc, x, y, color);
 //}
 void DirectDrawArcTo(HDC hdc, int x1, int y1, int w, int h, int start_angle, int sweep_angle, COLORREF color) {
-#ifndef USE_X68000
-    ConOutput co_cout(hOutput);
-    co_cout << "DirectDrawArcTo" << co_endl;
-    co_cout << "  x1 = " << x1 << co_endl;
-    co_cout << "  y1 = " << y1 << co_endl;
-    co_cout << "  w  = " << w << co_endl;
-    co_cout << "  h  = " << h << co_endl;
-    co_cout << "  start_angle = " << start_angle << co_endl;
-    co_cout << "  sweep_angle = " << sweep_angle << co_endl;
-    co_cout << "  color = " << (int)color << co_endl;
-#endif
     int cx = x1 + w / 2;
     int cy = y1 + h / 2;
     for (int a = start_angle; a < start_angle + sweep_angle; a += 5) {
@@ -971,17 +811,6 @@ void DirectDrawArcTo(HDC hdc, int x1, int y1, int w, int h, int start_angle, int
     DirectDrawArcLineTo(hdc, cx, cy, w, h, start_angle + sweep_angle, color);
 }
 void DirectDrawArc(HDC hdc, int x1, int y1, int w, int h, int start_angle, int sweep_angle, COLORREF color) {
-#ifndef USE_X68000
-    ConOutput co_cout(hOutput);
-    co_cout << "DirectDrawArc" << co_endl;
-    co_cout << "  x1 = " << x1 << co_endl;
-    co_cout << "  y1 = " << y1 << co_endl;
-    co_cout << "  w  = " << w << co_endl;
-    co_cout << "  h  = " << h << co_endl;
-    co_cout << "  start_angle = " << start_angle << co_endl;
-    co_cout << "  sweep_angle = " << sweep_angle << co_endl;
-    co_cout << "  color = " << (int)color << co_endl;
-#endif
     DirectDrawLineInit();
     DirectDrawArcTo(hdc, x1, y1, w, h, start_angle, sweep_angle, color);
 }
@@ -1295,302 +1124,43 @@ void paint_cmd(HWND hwnd) {
 #endif
 }
 
+#include "drawdigit.h"
+
 void digital_test(HDC hdc, int n, int xi, int yi) {
     int fw = 100;
     int fh = 150;
-    int x = fw * xi;
-    int y = fh * yi;
     double r = 0.9;
     double w = fw * r;
     double h = fh * r;
-    double rw1 = 0.15;
-    double rh1 = 0.1;
-    double rw2 = 0.15;
-    double rh2 = 0.2;
-    double rx1 = 0.5;
-    double rx3 = 0.1;
-    double rx4 = 0.6;
-    double rx7 = 0.3;
-    double ry4 = 0.7;
-    if (n == 0 || n == 2 || n == 3 || n == 6 || n == 8 || n == 9) {
-		// 上の横線
-        DirectFillTrapezoid(hdc,
-            (int)(x + w * rw1),
-            (int)(y),
-            (int)(x),
-            (int)(y + h * rh1),
-            (int)(w - w * rw1 * 2),
-            (int)(w),
-            RGB(255, 0, 0));
-    }
-    if (n == 0 || n == 3 || n == 5 || n == 6 || n == 8 || n == 9) {
-		// 下の横線
-        DirectFillTrapezoid(hdc,
-            (int)(x),
-            (int)(y + h - h * rh1),
-            (int)(x + w * rw1),
-            (int)(y + h),
-            (int)(w),
-            (int)(w - w * rw1 * 2),
-            RGB(255, 0, 0));
-    }
-    if (n == 3) {
-		// 中央の横線
-        DirectFillTrapezoid(hdc,
-            (int)(x + w * rx3),
-            (int)(y + h / 2 - h * rh1 * 0.5),
-            (int)(x + w * rx3),
-            (int)(y + h / 2),
-            (int)(w - w * rx3),
-            (int)(w - w * rx3 - w * rw1),
-            RGB(255, 0, 0));
-        DirectFillTrapezoid(hdc,
-            (int)(x + w * rx3),
-            (int)(y + h / 2),
-            (int)(x + w * rx3),
-            (int)(y + h / 2 + h * rh1 * 0.5),
-            (int)(w - w * rx3 - w * rw1),
-            (int)(w - w * rx3),
-            RGB(255, 0, 0));
-    }
-    if (n == 8) {
-		// 中央の横線
-        DirectFillTrapezoid(hdc,
-            (int)(x),
-            (int)(y + h / 2 - h * rh1 * 0.5),
-            (int)(x + w * rw1),
-            (int)(y + h / 2),
-            (int)(w),
-            (int)(w - w * rw1 * 2),
-            RGB(255, 0, 0));
-        DirectFillTrapezoid(hdc,
-            (int)(x + w * rw1),
-            (int)(y + h / 2),
-            (int)(x),
-            (int)(y + h / 2 + h * rh1 * 0.5),
-            (int)(w - w * rw1 * 2),
-            (int)(w),
-            RGB(255, 0, 0));
-    }
-    if (n == 5 || n == 6) {
-        // 中央の横線
-        DirectFillTrapezoid(hdc,
-            (int)(x),
-            (int)(y + h / 2 - h * rh1 * 0.5),
-            (int)(x),
-            (int)(y + h / 2 + h * rh1 * 0.5),
-            (int)(w - w * rw1),
-            (int)(w),
-            RGB(255, 0, 0));
-    }
-    if (n == 9) {
-        // 中央の横線
-        DirectFillTrapezoid(hdc,
-            (int)(x),
-            (int)(y + h / 2 - h * rh1 * 0.5),
-            (int)(x + w * rw1),
-            (int)(y + h / 2 + h * rh1 * 0.5),
-            (int)(w),
-            (int)(w - w * rw1),
-            RGB(255, 0, 0));
-    }
-    if (n == 0 || n == 6) {
-		// 左の縦線
-        DirectFillRectangle(hdc,
-            (int)(x),
-            (int)(y + h * rh1),
-            (int)(w * rw1),
-            (int)(h - h * rh1 * 2),
-            RGB(255, 0, 0));
-    }
-    if (n == 0 || n == 9) {
-		// 右の縦線
-        DirectFillRectangle(hdc,
-            (int)(x + w - w * rw1),
-            (int)(y + h * rh1),
-            (int)(w * rw1),
-            (int)(h - h * rh1 * 2),
-            RGB(255, 0, 0));
-    }
-    if (n == 1) {
-		// 縦線
-        DirectFillTrapezoid(hdc,
-            (int)(x + w * rx1 - w * rw1 / 2),
-            (int)(y),
-            (int)(x + w * rx1 - w * rw1 / 2 - w * rw2),
-            (int)(y + h * rh1),
-            (int)(0),
-            (int)(w * rw2),
-            RGB(255, 0, 0));
-        DirectFillRectangle(hdc,
-            (int)(x + w * rx1 - w * rw1 / 2),
-            (int)(y),
-            (int)(w * rw1),
-            (int)(h),
-            RGB(255, 0, 0));
-    }
-    if (n == 4) {
-		// 縦線
-        DirectFillRectangle(hdc,
-            (int)(x + w * rx4 - w * rw1 / 2),
-            (int)(y),
-            (int)(w * rw1),
-            (int)(h),
-            RGB(255, 0, 0));
-    }
-    if (n == 2) {
-		// 下の横線
-        DirectFillRectangle(hdc,
-            (int)(x),
-            (int)(y + h - h * rh1),
-            (int)(w),
-            (int)(h * rh1),
-            RGB(255, 0, 0));
-    }
-    if (n == 4) {
-		// 上の横線
-        DirectFillRectangle(hdc,
-            (int)(x),
-            (int)(y + h * ry4 - h * rh1 * 0.5),
-            (int)(w),
-            (int)(h * rh1),
-            RGB(255, 0, 0));
-    }
-    if (n == 5 || n == 7) {
-        // 上の横線
-        DirectFillRectangle(hdc,
-            (int)(x),
-            (int)(y),
-            (int)(w),
-            (int)(h * rh1),
-            RGB(255, 0, 0));
-    }
-    if (n == 5 || n == 8 || n == 9) {
-		// 左上の縦線
-        DirectFillRectangle(hdc,
-            (int)(x),
-            (int)(y + h * rh1),
-            (int)(w * rw1),
-            (int)(h / 2 - h * rh1 * 1.5),
-            RGB(255, 0, 0));
-    }
-    if (n == 3 || n == 8) {
-		// 右上の縦線
-        DirectFillRectangle(hdc,
-            (int)(x + w - w * rw1),
-            (int)(y + h * rh1),
-            (int)(w * rw1),
-            (int)(h / 2 - h * rh1 * 1.5),
-            RGB(255, 0, 0));
-    }
-    if (n == 8) {
-		// 左下の縦線
-        DirectFillRectangle(hdc,
-            (int)(x),
-            (int)(y + h / 2 + h * rh1 * 0.5),
-            (int)(w * rw1),
-            (int)(h / 2 - h * rh1 * 1.5),
-            RGB(255, 0, 0));
-    }
-    if (n == 3 || n == 5 || n == 6 || n == 8) {
-		// 右下の縦線
-        DirectFillRectangle(hdc,
-            (int)(x + w - w * rw1),
-            (int)(y + h / 2 + h * rh1 * 0.5),
-            (int)(w * rw1),
-            (int)(h / 2 - h * rh1 * 1.5),
-            RGB(255, 0, 0));
-    }
-    if (n == 2 || n == 3) {
-		// 左上の縦線
-        DirectFillRectangle(hdc,
-            (int)(x),
-            (int)(y + h * rh1),
-            (int)(w * rw1),
-            (int)(h * rh2),
-            RGB(255, 0, 0));
-    }
-    if (n == 2 || n == 6 || n == 7) {
-		// 右上の縦線
-        DirectFillRectangle(hdc,
-            (int)(x + w - w * rw1),
-            (int)(y + h * rh1),
-            (int)(w * rw1),
-            (int)(h * rh2),
-            RGB(255, 0, 0));
-    }
-    if (n == 3 || n == 5 || n == 9) {
-        // 左下の縦線
-        DirectFillRectangle(hdc,
-            (int)(x),
-            (int)(y + h - h * rh1 - h * rh2),
-            (int)(w * rw1),
-            (int)(h * rh2),
-            RGB(255, 0, 0));
-    }
-    if (n == 2) {
-        // 斜めの線
-        DirectFillTrapezoid(hdc,
-            (int)(x + w - w * rw1),
-            (int)(y + h * rh1 + h * rh2),
-            (int)(x),
-            (int)(y + h - h * rh1),
-            (int)(w * rw1),
-            (int)(w * rw1),
-            RGB(255, 0, 0));
-    }
-    if (n == 4) {
-        // 斜めの線
-        DirectFillTrapezoid(hdc,
-            (int)(x + w * rx4 - w * rw1 * 0.5),
-            (int)(y),
-            (int)(x),
-            (int)(y + h * ry4 - h * rh1 * 0.5),
-            (int)(w * rw1),
-            (int)(w * rw1),
-            RGB(255, 0, 0));
-    }
-    if (n == 7) {
-        // 斜めの線
-        DirectFillTrapezoid(hdc,
-            (int)(x + w - w * rw1),
-            (int)(y + h * rh1 + h * rh2),
-            (int)(x + w * rx7 - w * rw1 * 0.5),
-            (int)(y + h),
-            (int)(w * rw1),
-            (int)(w * rw1),
-            RGB(255, 0, 0));
-    }
-    if (n == 10) {
-        // 小数点
-        DirectFillRectangle(hdc,
-            (int)(x + w * rx1 - w * rw1 / 2),
-            (int)(y + h - h * rh1),
-            (int)(w * rw1),
-            (int)(h * rh1),
-            RGB(255, 0, 0));
-    }
+    int x = fw * xi + fw * (1 - r) * 0.5;
+    int y = fh * yi + fh * (1 - r) * 0.5;
+    draw_digit1(hdc, n, x, y, (int)w, (int)h, RGB(0, 0, 255));
+}
+
+void test_(HDC hdc) {
+    digital_test(hdc, 0, 0, 0);
+    digital_test(hdc, 1, 1, 0);
+    digital_test(hdc, 2, 2, 0);
+    digital_test(hdc, 3, 3, 0);
+    digital_test(hdc, 4, 0, 1);
+    digital_test(hdc, 5, 1, 1);
+    digital_test(hdc, 6, 2, 1);
+    digital_test(hdc, 7, 3, 1);
+    digital_test(hdc, 8, 0, 2);
+    digital_test(hdc, 9, 1, 2);
+    digital_test(hdc, 10, 2, 2);
+    digital_test(hdc, 11, 3, 2);
+}
+
+void draw_number_string(HDC hdc, const char* text, int numer_string_type, int x1, int y1, int w, int h, COLORREF color) {
+    draw_num_str(hdc, text, numer_string_type, x1, y1, w, h, color);
 }
 
 void draw_cmd(HDC hdc, DrawCommand & cmd) {
 #ifdef PIXEL_DRAW_MODE // Windowsの機能を使わず直接描画する場合(SetPixelを使う)
     switch (cmd.type) {
-    case DrawType::Clear:
-        //hOldBrush = (HBRUSH)SelectObject(hdc, hBrush);
-        //FillRect(hdc, &ps.rcPaint, hBrush);
-        //SelectObject(hdc, hOldBrush);
-        break;
     case DrawType::Line:
         DirectDrawLine(hdc, cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.color);
-        break;
-    case DrawType::LineTo:
-        DirectDrawLineTo(hdc, cmd.x2, cmd.y2, cmd.color);
-        break;
-    case DrawType::LineInit:
-        DirectDrawLineInit();
-        break;
-    case DrawType::String:
-        //DrawTextOutW(hdc, cmd.x1, cmd.y1, cmd.text);
         break;
     case DrawType::Rect:
         DirectDrawRectangle(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.color);
@@ -1616,21 +1186,6 @@ void draw_cmd(HDC hdc, DrawCommand & cmd) {
     case DrawType::FillPie:
     {
         DirectFillPie(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.start_angle, cmd.sweep_angle, cmd.color);
-        //int cx = cmd.x1 + cmd.w / 2;
-        //int cy = cmd.y1 + cmd.h / 2;
-        //for (int y = cmd.y1; y < cmd.y1 + cmd.h; ++y) {
-        //    double uy = ((double)y - cy) * 2 / cmd.h; // 単位円のy座標
-        //    int ex = (int)(sqrt(1 - uy * uy) * cmd.w / 2); // 楕円のx座標
-        //    for (int x = cx - ex; x <= cx + ex; ++x) {
-        //        double ux = ((double)x - cx) * 2 / cmd.w; // 単位円のx座標
-        //        // (ux, uy) が cmd.start_angle から cmd.sweep_angle の範囲内にあるかチェック
-        //        double angle = atan2(-uy, ux) * 180 / 3.14159; // 度に変換
-        //        if (angle < 0) angle += 360; // 正の角度に変換
-        //        if (angle >= cmd.start_angle && angle <= cmd.start_angle + cmd.sweep_angle) {
-        //            SetPixel(hdc, x, y, cmd.color);
-        //        }
-        //    }
-        //}
         break;
     }
     case DrawType::FillRoundRect:
@@ -1644,52 +1199,16 @@ void draw_cmd(HDC hdc, DrawCommand & cmd) {
         break;
     case DrawType::Circle:
     {
-        //HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
-        //int x1 = cmd.x1 - cmd.r;
-        //int x2 = cmd.x1 + cmd.r * cmd.hbyw / 256;
-        //int y1 = cmd.y1 - cmd.r;
-        //int y2 = cmd.y1 + cmd.r * cmd.hbyw / 256;
-        //if (cmd.start_angle == 0 && cmd.end_angle == 360) {
-        //    Ellipse(hdc, x1, y1, x2, y2);
-        //}
-        //else if (cmd.start_angle <= 0 && cmd.end_angle < 0) {
-        //    Pie(hdc, x1, y1, x2, y2,
-        //        cmd.x1 + (int)(cmd.r * cos((cmd.start_angle + 360) * 3.14159 / 180)),
-        //        cmd.y1 - (int)(cmd.r * sin((cmd.start_angle + 360) * 3.14159 / 180)),
-        //        cmd.x1 + (int)(cmd.r * cos((cmd.end_angle + 360) * 3.14159 / 180)),
-        //        cmd.y1 - (int)(cmd.r * sin((cmd.end_angle + 360) * 3.14159 / 180)));
-        //}
-        //else {
-        //    Arc(hdc, x1, y1, x2, y2,
-        //        cmd.x1 + (int)(cmd.r * cos((cmd.start_angle + 360) * 3.14159 / 180)),
-        //        cmd.y1 - (int)(cmd.r * sin((cmd.start_angle + 360) * 3.14159 / 180)),
-        //        cmd.x1 + (int)(cmd.r * cos((cmd.end_angle + 360) * 3.14159 / 180)),
-        //        cmd.y1 - (int)(cmd.r * sin((cmd.end_angle + 360) * 3.14159 / 180)));
-        //}
-        //SelectObject(hdc, hOldBrush);
+        break;
+    }
+    case DrawType::NumberString:
+    {
+        draw_number_string(hdc, cmd.text, cmd.number_string_type, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.color);
         break;
     }
     case DrawType::Test:
     {
         // テスト用
-        //for (int a = 0; a < 360; a += 10) {
-        //    int r = 100;
-        //    int color = 5;
-        //    int x = cmd.x1 + (int)(r * cos(a * 3.14159 / 180));
-        //    int y = cmd.y1 - (int)(r * sin(a * 3.14159 / 180));
-        //    DirectDrawLine(hdc, cmd.x1, cmd.y1, x, y, color);
-        //}
-        digital_test(hdc, 0, 0, 0);
-        digital_test(hdc, 1, 1, 0);
-        digital_test(hdc, 2, 2, 0);
-        digital_test(hdc, 3, 3, 0);
-        digital_test(hdc, 4, 0, 1);
-        digital_test(hdc, 5, 1, 1);
-        digital_test(hdc, 6, 2, 1);
-        digital_test(hdc, 7, 3, 1);
-        digital_test(hdc, 8, 0, 2);
-        digital_test(hdc, 9, 1, 2);
-        digital_test(hdc, 10, 2, 2);
         break;
     }
     case DrawType::Paint:
@@ -1729,30 +1248,9 @@ void draw_cmd(HDC hdc, DrawCommand & cmd) {
     }
 #else
     switch (cmd.type) {
-    case DrawType::Clear:
-        hOldBrush = (HBRUSH)SelectObject(hdc, hBrush);
-        FillRect(hdc, &ps.rcPaint, hBrush);
-        SelectObject(hdc, hOldBrush);
-        break;
     case DrawType::Line:
         MoveToEx(hdc, cmd.x1, cmd.y1, nullptr);
         LineTo(hdc, cmd.x2, cmd.y2);
-        break;
-    case DrawType::LineTo:
-        if (draw_x < 0) {
-            MoveToEx(hdc, cmd.x2, cmd.y2, nullptr);
-        }
-        else {
-            LineTo(hdc, cmd.x2, cmd.y2);
-        }
-        draw_x = cmd.x2; // 次のLineToのために座標を保存
-        draw_y = cmd.y2;
-        break;
-    case DrawType::LineInit:
-        draw_x = -1; // 初期化
-        break;
-    case DrawType::String:
-        DrawTextOutW(hdc, cmd.x1, cmd.y1, cmd.text);
         break;
     case DrawType::Rect:
         hOldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
@@ -1985,15 +1483,13 @@ void run(ConOutput& co_cout) {
 
 bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput & co_cerr) {
     const char* commands[] = {
-        "exit", "clear", "drawline", "drawstring", "drawrectangle",
-        "drawellipse", "drawarc", "drawpie", "drawroundedrectangle", "fillrectangle",
-        "fillellipse", "fillpie", "fillroundedrectangle",
-        "filltriangle","fillwtriangle", "filltrapezoid",
+        "exit", "drawline",
+        "drawrectangle", "drawellipse", "drawarc", "drawpie", "drawroundedrectangle",
+        "fillrectangle", "fillellipse", "fillpie", "fillroundedrectangle",
+		"filltriangle", "filltrapezoid",
         "line", "box", "circle", "fill", "paint", "pset", "point", "symbol",
         "apage", "vpage", "wipe", "screen", "window",
-        "lineto", "lineinit",
-        "xline", "xbox", "xcircle", "xfill", "xpie", "xpaint", "xpset", "xpoint", "xclear",
-        "run", "test", "sine", "opposite"
+        "drawnumberstring", "run", "test", "sine", "orthogonal"
     };
     const int command_count = sizeof(commands) / sizeof(commands[0]);
     CommandMatchResult result = matchCommand(tokens[0], commands, command_count);
@@ -2008,15 +1504,7 @@ bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput
     }
 
     DrawCommand cmd = {};
-    if (strcmp(result.command, "clear") == 0 && token_count == 2) {
-        cmd.type = DrawType::Clear;
-        cmd.color = parseColor(tokens[1]);
-    }
-    else if (strcmp(result.command, "xclear") == 0 && token_count == 2) {
-        cmd.type = DrawType::XClear;
-        cmd.color = parseColor(tokens[1]);
-    }
-    else if (strcmp(result.command, "drawline") == 0 && token_count == 6) {
+    if (result.is_command("drawline", "line") && token_count == 6) {
         cmd.type = DrawType::Line;
         cmd.x1 = atoi(tokens[1]);
         cmd.y1 = atoi(tokens[2]);
@@ -2024,14 +1512,7 @@ bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput
         cmd.y2 = atoi(tokens[4]);
         cmd.color = parseColor(tokens[5]);
     }
-    else if (strcmp(result.command, "drawstring") == 0 && token_count == 5) {
-        cmd.type = DrawType::String;
-        strcpy_s(cmd.text, sizeof(cmd.text), tokens[1]);
-        cmd.x1 = atoi(tokens[2]);
-        cmd.y1 = atoi(tokens[3]);
-        cmd.color = parseColor(tokens[4]);
-    }
-    else if (strcmp(result.command, "drawrectangle") == 0 && token_count == 6) {
+    else if (result.is_command("drawrectangle", "box") && token_count == 6) {
         cmd.type = DrawType::Rect;
         cmd.x1 = atoi(tokens[1]);
         cmd.y1 = atoi(tokens[2]);
@@ -2039,7 +1520,7 @@ bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput
         cmd.h = atoi(tokens[4]);
         cmd.color = parseColor(tokens[5]);
     }
-    else if (strcmp(result.command, "drawellipse") == 0 && token_count == 6) {
+    else if (result.is_command("drawellipse") && token_count == 6) {
         cmd.type = DrawType::Ellipse;
         cmd.x1 = atoi(tokens[1]);
         cmd.y1 = atoi(tokens[2]);
@@ -2047,7 +1528,7 @@ bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput
         cmd.h = atoi(tokens[4]);
         cmd.color = parseColor(tokens[5]);
     }
-    else if (strcmp(result.command, "drawarc") == 0 && token_count == 8) {
+    else if (result.is_command("drawarc") && token_count == 8) {
         cmd.type = DrawType::Arc;
         cmd.x1 = atoi(tokens[1]);
         cmd.y1 = atoi(tokens[2]);
@@ -2057,7 +1538,7 @@ bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput
         cmd.sweep_angle = atoi(tokens[6]);
         cmd.color = parseColor(tokens[7]);
     }
-    else if (strcmp(result.command, "drawpie") == 0 && token_count == 8) {
+    else if (result.is_command("drawpie") && token_count == 8) {
         cmd.type = DrawType::Pie;
         cmd.x1 = atoi(tokens[1]);
         cmd.y1 = atoi(tokens[2]);
@@ -2067,17 +1548,7 @@ bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput
         cmd.sweep_angle = atoi(tokens[6]);
         cmd.color = parseColor(tokens[7]);
     }
-    else if (strcmp(result.command, "xpie") == 0 && token_count == 8) {
-        cmd.type = DrawType::XPie;
-        cmd.x1 = atoi(tokens[1]);
-        cmd.y1 = atoi(tokens[2]);
-        cmd.w = atoi(tokens[3]);
-        cmd.h = atoi(tokens[4]);
-        cmd.start_angle = atoi(tokens[5]);
-        cmd.sweep_angle = atoi(tokens[6]);
-        cmd.color = parseColor(tokens[7]);
-    }
-    else if (strcmp(result.command, "drawroundedrectangle") == 0 && token_count == 8) {
+    else if (result.is_command("drawroundedrectangle") && token_count == 8) {
         cmd.type = DrawType::RoundRect;
         cmd.x1 = atoi(tokens[1]);
         cmd.y1 = atoi(tokens[2]);
@@ -2087,7 +1558,7 @@ bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput
         cmd.ry = atoi(tokens[6]);
         cmd.color = parseColor(tokens[7]);
     }
-    else if (strcmp(result.command, "fillrectangle") == 0 && token_count == 6) {
+    else if (result.is_command("fillrectangle", "fill") && token_count == 6) {
         cmd.type = DrawType::FillRect;
         cmd.x1 = atoi(tokens[1]);
         cmd.y1 = atoi(tokens[2]);
@@ -2095,7 +1566,7 @@ bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput
         cmd.h = atoi(tokens[4]);
         cmd.color = parseColor(tokens[5]);
     }
-    else if (strcmp(result.command, "fillellipse") == 0 && token_count == 6) {
+    else if (result.is_command("fillellipse") && token_count == 6) {
         cmd.type = DrawType::FillEllipse;
         cmd.x1 = atoi(tokens[1]);
         cmd.y1 = atoi(tokens[2]);
@@ -2103,7 +1574,7 @@ bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput
         cmd.h = atoi(tokens[4]);
         cmd.color = parseColor(tokens[5]);
     }
-    else if (strcmp(result.command, "fillpie") == 0 && token_count == 8) {
+    else if (result.is_command("fillpie") && token_count == 8) {
         cmd.type = DrawType::FillPie;
         cmd.x1 = atoi(tokens[1]);
         cmd.y1 = atoi(tokens[2]);
@@ -2113,7 +1584,7 @@ bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput
         cmd.sweep_angle = atoi(tokens[6]);
         cmd.color = parseColor(tokens[7]);
     }
-    else if (strcmp(result.command, "fillroundedrectangle") == 0 && token_count == 8) {
+    else if (result.is_command("fillroundedrectangle") && token_count == 8) {
         cmd.type = DrawType::FillRoundRect;
         cmd.x1 = atoi(tokens[1]);
         cmd.y1 = atoi(tokens[2]);
@@ -2123,16 +1594,7 @@ bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput
         cmd.ry = atoi(tokens[6]);
         cmd.color = parseColor(tokens[7]);
     }
-    else if (strcmp(result.command, "fillwtriangle") == 0 && token_count == 7) {
-        cmd.type = DrawType::FillWTriangle;
-        cmd.x1 = atoi(tokens[1]);
-        cmd.y1 = atoi(tokens[2]);
-        cmd.x2 = atoi(tokens[3]);
-        cmd.y2 = atoi(tokens[4]);
-        cmd.w = atoi(tokens[5]);
-        cmd.color = parseColor(tokens[6]);
-    }
-    else if (strcmp(result.command, "filltriangle") == 0 && token_count == 8) {
+    else if (result.is_command("filltriangle") && token_count == 8) {
         cmd.type = DrawType::FillTriangle;
         cmd.x1 = atoi(tokens[1]);
         cmd.y1 = atoi(tokens[2]);
@@ -2142,7 +1604,7 @@ bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput
         cmd.y3 = atoi(tokens[6]);
         cmd.color = parseColor(tokens[7]);
     }
-    else if (strcmp(result.command, "filltrapezoid") == 0 && token_count == 8) {
+    else if (result.is_command("filltrapezoid") && token_count == 8) {
         cmd.type = DrawType::FillTrapezoid;
         cmd.x1 = atoi(tokens[1]);
         cmd.y1 = atoi(tokens[2]);
@@ -2152,64 +1614,7 @@ bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput
         cmd.w2 = atoi(tokens[6]);
         cmd.color = parseColor(tokens[7]);
     }
-    else if (strcmp(result.command, "line") == 0 && token_count == 6) {
-        cmd.type = DrawType::Line;
-        cmd.x1 = atoi(tokens[1]);
-        cmd.y1 = atoi(tokens[2]);
-        cmd.x2 = atoi(tokens[3]);
-        cmd.y2 = atoi(tokens[4]);
-        cmd.color = parseColor(tokens[5]);
-    }
-    else if (strcmp(result.command, "xline") == 0 && token_count == 6) {
-        cmd.type = DrawType::XLine;
-        cmd.x1 = atoi(tokens[1]);
-        cmd.y1 = atoi(tokens[2]);
-        cmd.x2 = atoi(tokens[3]);
-        cmd.y2 = atoi(tokens[4]);
-        cmd.color = parseColor(tokens[5]);
-    }
-    else if (strcmp(result.command, "lineto") == 0 && token_count == 4) {
-        cmd.type = DrawType::LineTo;
-        cmd.x2 = atoi(tokens[1]);
-        cmd.y2 = atoi(tokens[2]);
-        cmd.color = parseColor(tokens[3]);
-    }
-    else if (strcmp(result.command, "lineinit") == 0 && token_count == 1) {
-        cmd.type = DrawType::LineInit;
-    }
-    else if (strcmp(result.command, "box") == 0 && token_count == 6) {
-        cmd.type = DrawType::Rect;
-        cmd.x1 = atoi(tokens[1]);
-        cmd.y1 = atoi(tokens[2]);
-        cmd.w = atoi(tokens[3]);
-        cmd.h = atoi(tokens[4]);
-        cmd.color = parseColor(tokens[5]);
-    }
-    else if (strcmp(result.command, "xbox") == 0 && token_count == 6) {
-        cmd.type = DrawType::XBox;
-        cmd.x1 = atoi(tokens[1]);
-        cmd.y1 = atoi(tokens[2]);
-        cmd.w = atoi(tokens[3]);
-        cmd.h = atoi(tokens[4]);
-        cmd.color = parseColor(tokens[5]);
-    }
-    else if (strcmp(result.command, "fill") == 0 && token_count == 6) {
-        cmd.type = DrawType::FillRect;
-        cmd.x1 = atoi(tokens[1]);
-        cmd.y1 = atoi(tokens[2]);
-        cmd.w = atoi(tokens[3]);
-        cmd.h = atoi(tokens[4]);
-        cmd.color = parseColor(tokens[5]);
-    }
-    else if (strcmp(result.command, "xfill") == 0 && token_count == 6) {
-        cmd.type = DrawType::XFill;
-        cmd.x1 = atoi(tokens[1]);
-        cmd.y1 = atoi(tokens[2]);
-        cmd.w = atoi(tokens[3]);
-        cmd.h = atoi(tokens[4]);
-        cmd.color = parseColor(tokens[5]);
-    }
-    else if (strcmp(result.command, "circle") == 0 && token_count == 8) {
+    else if (result.is_command("circle") && token_count == 8) {
         cmd.type = DrawType::Circle;
         cmd.x1 = atoi(tokens[1]);
         cmd.y1 = atoi(tokens[2]);
@@ -2219,51 +1624,24 @@ bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput
         cmd.end_angle = atoi(tokens[6]);
         cmd.hbyw = atoi(tokens[7]);
     }
-    else if (strcmp(result.command, "xcircle") == 0 && token_count == 8) {
-        cmd.type = DrawType::XCircle;
-        cmd.x1 = atoi(tokens[1]);
-        cmd.y1 = atoi(tokens[2]);
-        cmd.r = atoi(tokens[3]);
-        cmd.color = parseColor(tokens[4]);
-        cmd.start_angle = atoi(tokens[5]);
-        cmd.end_angle = atoi(tokens[6]);
-        cmd.hbyw = atoi(tokens[7]);
-    }
-    else if (strcmp(result.command, "paint") == 0 && token_count == 4) {
+    else if (result.is_command("paint") && token_count == 4) {
         cmd.type = DrawType::Paint;
         cmd.x1 = atoi(tokens[1]);
         cmd.y1 = atoi(tokens[2]);
         cmd.color = parseColor(tokens[3]);
     }
-    else if (strcmp(result.command, "xpaint") == 0 && token_count == 4) {
-        cmd.type = DrawType::XPaint;
-        cmd.x1 = atoi(tokens[1]);
-        cmd.y1 = atoi(tokens[2]);
-        cmd.color = parseColor(tokens[3]);
-    }
-    else if (strcmp(result.command, "pset") == 0 && token_count == 4) {
+    else if (result.is_command("pset") && token_count == 4) {
         cmd.type = DrawType::Pset;
         cmd.x1 = atoi(tokens[1]);
         cmd.y1 = atoi(tokens[2]);
         cmd.color = parseColor(tokens[3]);
     }
-    else if (strcmp(result.command, "xpset") == 0 && token_count == 4) {
-        cmd.type = DrawType::XPset;
-        cmd.x1 = atoi(tokens[1]);
-        cmd.y1 = atoi(tokens[2]);
-        cmd.color = parseColor(tokens[3]);
-    }
-    else if (strcmp(result.command, "point") == 0 && token_count == 3) {
+    else if (result.is_command("point") && token_count == 3) {
         cmd.type = DrawType::Point;
         cmd.x1 = atoi(tokens[1]);
         cmd.y1 = atoi(tokens[2]);
     }
-    else if (strcmp(result.command, "xpoint") == 0 && token_count == 3) {
-        cmd.type = DrawType::XPoint;
-        cmd.x1 = atoi(tokens[1]);
-        cmd.y1 = atoi(tokens[2]);
-    }
-    else if (strcmp(result.command, "symbol") == 0 && token_count == 9) {
+    else if (result.is_command("symbol") && token_count == 9) {
         cmd.type = DrawType::Symbol;
         cmd.x1 = atoi(tokens[1]);
         cmd.y1 = atoi(tokens[2]);
@@ -2274,18 +1652,18 @@ bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput
         cmd.color = parseColor(tokens[7]);
         cmd.rotation = atoi(tokens[8]); // 回転データ 0-3
     }
-    else if (strcmp(result.command, "apage") == 0 && token_count == 2) {
+    else if (result.is_command("apage") && token_count == 2) {
         cmd.type = DrawType::Apage;
         cmd.page = atoi(tokens[1]);
     }
-    else if (strcmp(result.command, "vpage") == 0 && token_count == 2) {
+    else if (result.is_command("vpage") && token_count == 2) {
         cmd.type = DrawType::Vpage;
         cmd.page = atoi(tokens[1]);
     }
-    else if (strcmp(result.command, "wipe") == 0 && token_count == 1) {
+    else if (result.is_command("wipe") && token_count == 1) {
         cmd.type = DrawType::Wipe;
     }
-    else if (strcmp(result.command, "screen") == 0 && token_count >= 2 && token_count <= 4) {
+    else if (result.is_command("screen") && token_count >= 2 && token_count <= 4) {
         cmd.type = DrawType::Screen;
         cmd.sc1 = atoi(tokens[1]);
         cmd.sc2 = atoi(tokens[2]);
@@ -2296,21 +1674,31 @@ bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput
             cmd.sc3 = 0; // デフォルト値
         }
     }
-    else if (strcmp(result.command, "window") == 0 && token_count == 5) {
+    else if (result.is_command("window") && token_count == 5) {
         cmd.type = DrawType::Window;
         cmd.x1 = atoi(tokens[1]);
         cmd.y1 = atoi(tokens[2]);
         cmd.x2 = atoi(tokens[3]);
         cmd.y2 = atoi(tokens[4]);
     }
-    else if (strcmp(result.command, "run") == 0 && token_count == 1) {
+    else if (result.is_command("drawnumberstring") && token_count == 8) {
+        cmd.type = DrawType::NumberString;
+        strcpy_s(cmd.text, sizeof(cmd.text), tokens[1]);
+        cmd.number_string_type = atoi(tokens[2]);
+        cmd.x1 = atoi(tokens[3]);
+        cmd.y1 = atoi(tokens[4]);
+        cmd.w = atoi(tokens[5]);
+        cmd.h = atoi(tokens[6]);
+        cmd.color = parseColor(tokens[7]);
+    }
+    else if (result.is_command("run") && token_count == 1) {
 		run(co_cout);
         return true;
     }
-    else if (strcmp(result.command, "test") == 0 && token_count == 1) {
+    else if (result.is_command("test") && token_count == 1) {
         cmd.type = DrawType::Test;
     }
-    else if (strcmp(result.command, "sine") == 0 && token_count == 1) {
+    else if (result.is_command("sine") && token_count == 1) {
         // 正弦関数の表を作る
         // 単精度浮動小数点数の有効桁数約7桁なので小数点以下7桁まで表示
         for (int a = 0; a <= 450; a += 5) {
@@ -2320,7 +1708,7 @@ bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput
             printf("%.7f,\n", sine_value);
         }
     }
-    else if (strcmp(result.command, "opposite") == 0 && token_count == 1) {
+    else if (result.is_command("orthogonal") && token_count == 1) {
         // 円の反対側の座標の表を作る
         // 画面上の座標(最大1024)なので、半径は10000とする
         double r = 10000; // 円の半径
@@ -2546,19 +1934,6 @@ int orthogonal_dim_table[] = {
     0,
 };
 
-//int tab_opposite_edge(int x, int rx, int ry) {
-//    // 半径 r の円の y 座標の表から、
-//    // x 座標、x 方向の半径、y 方向の半径を
-//    // 指定して y 座標を求める
-//    int r = 10000;
-//    int ux = abs(x) * r / rx; // 半径 r の円の x 座標
-//    if (ux > r) {
-//		// 入力が半径 r の円の範囲外なら 0 を返す
-//		return 0;
-//    }
-//    int index = ux / 100;
-//	return opposite_edge_table[index] * ry / r; // y 座標を求める
-//}
 int tab_orthogonal_dim(int x, int rx, int ry) {
     // 半径 r の円の y 座標の表から、
     // x 座標、x 方向の半径、y 方向の半径を

@@ -137,6 +137,12 @@ const int MAX_INPUT_LENGTH = 100;
 struct CommandMatchResult {
     bool matched;       // 見つかったかどうか
     const char* command; // 見つかったコマンド名（見つからなければ nullptr）
+    bool is_command(const char* name) {
+        return matched && (strcmp(command, name) == 0);
+	}
+    bool is_command(const char* name1, const char* name2) {
+        return matched && (strcmp(command, name1) == 0 || strcmp(command, name2) == 0);
+    }
 };
 
 // マッチング関数
