@@ -85,21 +85,22 @@ fillrectangle と同じです。
 台形の斜辺の両端の座標と上底と下底の幅を指定して塗りつぶした台形を描画します。color で色を指定します。
 
 ### crtmod mode
+(X68000のみ)
 CRT モードを設定します。
 
 ### g_clr_on
-90 グラフィック表示モードにする
-  _G_CLR_ON
-  引数: なし
-  返り値: D0 が破壊される
+(X68000のみ)
+グラフィック表示モードにします。
 
 ### gpalet color color_code
+(X68000のみ)
 グラフィック・パレットを設定します。
 
     color: パレットコード
     color_code: カラーコード
 
 ### screen sc1 sc2 sc3
+(X68000のみ)
 画面の設定をします。
 
     sc1: 表示画面サイズ
@@ -116,18 +117,23 @@ CRT モードを設定します。
       1: High（高解像度）
 
 ### circle x y r color start_angle end_engle ratio
+(X68000のみ)
 中心 (x, y)、半径 r、縦横の比率 ratio の楕円の円弧を描画します。color で色を指定します。start_angle、end_engle で円弧開始角度(度)、円弧終了角度(度)を指定します。負の値を指定すると扇型を描きます。ratio は 256 より小さければ横長の楕円、256 より大きければ縦長の楕円、256 のとき円(ただし表示上は円にはなりません)を描きます。
 
 ### paint x y color
+(X68000のみ)
 (x, y)を含む領域を色 color で塗りつぶします。
 
 ### pset x y color
+(X68000のみ)
 点(x, y)を色 color にします。
 
 ### point x y
+(X68000のみ)
 点(x, y)を色を取得します。
 
 ### symbol x y str mx my color type d
+(X68000のみ)
 グラフィック画面の位置(x,y)に横方向の倍率 mx、縦方向の倍率 my で指定されたサイズの文字列 str を表示します。color で色を指定します。type は文字のタイプを指定します。
 
       0: 全角が12×12ドット
@@ -142,15 +148,19 @@ d は向きを指定します。
       3: 270度回転
 
 ### apage page
+(X68000のみ)
 読み出し、書き込みページを設定します。
 
 ### vpage page
+(X68000のみ)
 表示ページを設定します。
 
 ### wipe
+(X68000のみ)
 画面を消去します。
 
 ### window x1 y1 x2 y2
+(X68000のみ)
 グラフィック画面のウィンドウを設定します。
 
 ### drawnumberstring str type x y w h color
