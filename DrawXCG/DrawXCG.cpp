@@ -34,13 +34,14 @@
 
 void print_command(const DrawCommand& cmd) {
     printf("Command: type=%d, color=%d, x1=%d, y1=%d, x2=%d, y2=%d, x3=%d, y3=%d, w=%d, h=%d, w2=%d, rx=%d, ry=%d, "
-        "start_angle=%d, sweep_angle=%d, r=%d, hbyw=%d, end_angle=%d, sc1=%d, sc2=%d, sc3=%d, sc4=%d, page=%d, "
+        "start_angle=%d, sweep_angle=%d, r=%d, hbyw=%d, end_angle=%d, crtmode=%d, colorcode=%d, sc1=%d, sc2=%d, sc3=%d, sc4=%d, page=%d, "
         "mx=%u, my=%u, font_size=%u, rotation=%u, number_string_type=%d, text='%s'\n",
         static_cast<int>(cmd.type), cmd.color,
         cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.x3, cmd.y3,
         cmd.w, cmd.h, cmd.w2, cmd.rx, cmd.ry,
         cmd.start_angle, cmd.sweep_angle,
         cmd.r, cmd.hbyw, cmd.end_angle,
+        cmd.crtmode, cmd.color_code,
         cmd.sc1, cmd.sc2, cmd.sc3, cmd.sc4,
         cmd.page,
         cmd.mx, cmd.my, cmd.font_size, cmd.rotation,
@@ -135,18 +136,7 @@ COLORREF parseColor(char* s) {
 #endif
 
 #ifdef USE_X68000
-// アセンブラのテスト
-void test()
-{
-}
-
 uint16_t default_line_style = 0xffff; // デフォルトの線のスタイル
-void Clear(const DrawCommand & cmd) {
-    wipe();
-}
-void XClear(const DrawCommand & cmd) {
-    wipe();
-}
 int draw_x = -1;
 int draw_y = -1;
 void DrawLineInit() {
@@ -175,11 +165,14 @@ void DirectFillTrapezoid(HDC hdc, int x1, int y1, int x2, int y2, int w1, int w2
 void DirectFillTriangle(HDC hdc, int x1, int y1, int x2, int y2, int x3, int y3, COLORREF color);
 
 HDC hdc = 0;
-void DrawLine(const DrawCommand & cmd) {
-    //DirectDrawLine(hdc, cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.color);
+void DrawLine(const DrawCommand& cmd) {
+#ifdef ASM_MAKING_TIME
+    DirectDrawLine(hdc, cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.color);
+#else
     drawlinex(cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.color);
+#endif
 }
-void DrawLineTo(const DrawCommand & cmd) {
+void DrawLineTo(const DrawCommand& cmd) {
     if (draw_x >= 0) {
         DrawCommand cmd2;
         cmd2.x1 = draw_x;
@@ -192,60 +185,92 @@ void DrawLineTo(const DrawCommand & cmd) {
     draw_x = cmd.x2;
     draw_y = cmd.y2;
 }
-void DrawLineInit(const DrawCommand & cmd) {
+void DrawLineInit(const DrawCommand& cmd) {
     DrawLineInit();
 }
-void DrawRectangle(const DrawCommand & cmd) {
-    //DirectDrawRectangle(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.color);
+void DrawRectangle(const DrawCommand& cmd) {
+#ifdef ASM_MAKING_TIME
+    DirectDrawRectangle(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.color);
+#else
     drawboxx(cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.color);
+#endif
 }
-void DrawEllipse(const DrawCommand & cmd) {
-    // DirectDrawEllipse(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.color);
+void DrawEllipse(const DrawCommand& cmd) {
+#ifdef ASM_MAKING_TIME
+    DirectDrawEllipse(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.color);
+#else
     drawarcx(cmd.x1, cmd.y1, cmd.w, cmd.h, 0, 360, cmd.color);
+#endif
 }
-void DrawArc(const DrawCommand & cmd) {
-    // DirectDrawArc(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.start_angle, cmd.sweep_angle, cmd.color);
+void DrawArc(const DrawCommand& cmd) {
+#ifdef ASM_MAKING_TIME
+    DirectDrawArc(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.start_angle, cmd.sweep_angle, cmd.color);
+#else
     drawarcx(cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.start_angle, cmd.sweep_angle, cmd.color);
+#endif
 }
-void DrawPie(const DrawCommand & cmd) {
-    // DirectDrawPie(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.start_angle, cmd.sweep_angle, cmd.color);
+void DrawPie(const DrawCommand& cmd) {
+#ifdef ASM_MAKING_TIME
+    DirectDrawPie(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.start_angle, cmd.sweep_angle, cmd.color);
+#else
     drawpiex(cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.start_angle, cmd.sweep_angle, cmd.color);
+#endif
 }
-void DrawRoundedRectangle(const DrawCommand & cmd) {
-    //DirectDrawRoundedRectangle(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.rx, cmd.ry, cmd.color);
+void DrawRoundedRectangle(const DrawCommand& cmd) {
+#ifdef ASM_MAKING_TIME
+    DirectDrawRoundedRectangle(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.rx, cmd.ry, cmd.color);
+#else
     drawroundedrectanglex(cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.rx, cmd.ry, cmd.color);
+#endif
 }
-void FillRectangle(const DrawCommand & cmd) {
-    //DirectFillRectangle(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.color);
+void FillRectangle(const DrawCommand& cmd) {
+#ifdef ASM_MAKING_TIME
+    DirectFillRectangle(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.color);
+#else
     fillboxx(cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.color);
+#endif
 }
-void FillEllipse(const DrawCommand & cmd) {
-    // DirectFillEllipse(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.color);
+void FillEllipse(const DrawCommand& cmd) {
+#ifdef ASM_MAKING_TIME
+    DirectFillEllipse(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.color);
+#else
     fillellipsex(cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.color);
+#endif
 }
-void FillPie(const DrawCommand & cmd) {
+void FillPie(const DrawCommand& cmd) {
+#ifdef ASM_MAKING_TIME
     DirectFillPie(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.start_angle, cmd.sweep_angle, cmd.color);
+#endif
 }
-void FillRoundedRectangle(const DrawCommand & cmd) {
-    // DirectFillRoundedRectangle(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.rx, cmd.ry, cmd.color);
+void FillRoundedRectangle(const DrawCommand& cmd) {
+#ifdef ASM_MAKING_TIME
+    DirectFillRoundedRectangle(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.rx, cmd.ry, cmd.color);
+#else
     fillroundedrectanglex(cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.rx, cmd.ry, cmd.color);
+#endif
 }
-void FillTrapezoid(const DrawCommand & cmd) {
-    // DirectFillTrapezoid(hdc, cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.w, cmd.w2, cmd.color);
+void FillTrapezoid(const DrawCommand& cmd) {
+#ifdef ASM_MAKING_TIME
+    DirectFillTrapezoid(hdc, cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.w, cmd.w2, cmd.color);
+#else
     filltrapezoidx(cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.w, cmd.w2, cmd.color);
+#endif
 }
-void FillTriangle(const DrawCommand & cmd) {
-    // DirectFillTriangle(hdc, cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.x3, cmd.y3, cmd.color);
+void FillTriangle(const DrawCommand& cmd) {
+#ifdef ASM_MAKING_TIME
+    DirectFillTriangle(hdc, cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.x3, cmd.y3, cmd.color);
+#else
     filltrianglex(cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.x3, cmd.y3, cmd.color);
+#endif
 }
 #else
-void DrawLine(const DrawCommand & cmd) {
+void DrawLine(const DrawCommand& cmd) {
     uint16_t data[6] = { static_cast<uint16_t>(cmd.x1), static_cast<uint16_t>(cmd.y1),
                          static_cast<uint16_t>(cmd.x2), static_cast<uint16_t>(cmd.y2),
                          static_cast<uint16_t>(cmd.color), default_line_style };
     drawline(data);
 }
-void DrawLineTo(const DrawCommand & cmd) {
+void DrawLineTo(const DrawCommand& cmd) {
     if (draw_x >= 0) {
         DrawCommand cmd2;
         cmd2.x1 = draw_x;
@@ -258,7 +283,7 @@ void DrawLineTo(const DrawCommand & cmd) {
     draw_x = cmd.x2;
     draw_y = cmd.y2;
 }
-void DrawRectangle(const DrawCommand & cmd) {
+void DrawRectangle(const DrawCommand& cmd) {
     uint16_t data[6] = { static_cast<uint16_t>(cmd.x1), static_cast<uint16_t>(cmd.y1),
                          static_cast<uint16_t>(cmd.x1 + cmd.w), static_cast<uint16_t>(cmd.y1 + cmd.h),
                          static_cast<uint16_t>(cmd.color), default_line_style };
@@ -268,21 +293,21 @@ int16_t hw_ratio(int h, int w) {
     double h_by_w = (double)h / (double)w;
     return h_by_w * 256;
 }
-void DrawEllipse(const DrawCommand & cmd) {
+void DrawEllipse(const DrawCommand& cmd) {
     int16_t data[7] = { static_cast<int16_t>(cmd.x1 + cmd.w / 2), static_cast<int16_t>(cmd.y1 + cmd.h / 2),
                         static_cast<int16_t>(cmd.w / 2), // static_cast<int16_t>(cmd.h / 2),
                         static_cast<int16_t>(cmd.color), 0, 360,
                         hw_ratio(cmd.h, cmd.w) };
     drawcircle(data);
 }
-void DrawArc(const DrawCommand & cmd) {
+void DrawArc(const DrawCommand& cmd) {
     int16_t data[7] = { static_cast<int16_t>(cmd.x1 + cmd.w / 2), static_cast<int16_t>(cmd.y1 + cmd.h / 2),
                         static_cast<int16_t>(cmd.w / 2), // static_cast<int16_t>(cmd.h / 2),
                         static_cast<int16_t>(cmd.color), static_cast<int16_t>(cmd.start_angle), static_cast<int16_t>(cmd.start_angle + cmd.sweep_angle),
                         hw_ratio(cmd.h, cmd.w) };
     drawcircle(data);
 }
-void DrawPie(const DrawCommand & cmd) {
+void DrawPie(const DrawCommand& cmd) {
     int16_t data[7] = { static_cast<int16_t>(cmd.x1 + cmd.w / 2), static_cast<int16_t>(cmd.y1 + cmd.h / 2),
                         static_cast<int16_t>(cmd.w / 2), // static_cast<int16_t>(cmd.h / 2),
                         static_cast<int16_t>(cmd.color), static_cast<int16_t>(-cmd.start_angle), static_cast<int16_t>(-cmd.start_angle - cmd.sweep_angle),
@@ -301,7 +326,7 @@ void GDrawArc(COLORREF color, int x, int y, int width, int height, int startAngl
                         static_cast<int16_t>(color), static_cast<int16_t>(startAngle), static_cast<int16_t>(startAngle + sweepAngle) };
     drawcircle(data);
 }
-void DrawRoundedRectangle(const DrawCommand & cmd) {
+void DrawRoundedRectangle(const DrawCommand& cmd) {
     int x = cmd.x1, y = cmd.y1, width = cmd.w, height = cmd.h;
     int rx = cmd.rx;
     int ry = cmd.ry;
@@ -316,19 +341,19 @@ void DrawRoundedRectangle(const DrawCommand & cmd) {
     GDrawArc(color, x, y + height - dy, dx, dy, 90, 90);
     GDrawArc(color, x + width - dx, y + height - dy, dx, dy, 0, 90);
 }
-void FillRectangle(const DrawCommand & cmd) {
+void FillRectangle(const DrawCommand& cmd) {
     uint16_t data[5] = { static_cast<uint16_t>(cmd.x1), static_cast<uint16_t>(cmd.y1),
                          static_cast<uint16_t>(cmd.x1 + cmd.w), static_cast<uint16_t>(cmd.y1 + cmd.h),
                          static_cast<uint16_t>(cmd.color) };
     fillbox(data);
 }
-void FillEllipse(const DrawCommand & cmd) {
+void FillEllipse(const DrawCommand& cmd) {
     int16_t data[5] = { static_cast<int16_t>(cmd.x1 + cmd.w / 2), static_cast<int16_t>(cmd.y1 + cmd.h / 2),
                         static_cast<int16_t>(cmd.w / 2), static_cast<int16_t>(cmd.h / 2),
                         static_cast<int16_t>(cmd.color) };
     drawcircle(data);
 }
-void FillPie(const DrawCommand & cmd) {
+void FillPie(const DrawCommand& cmd) {
     int16_t data[7] = { static_cast<int16_t>(cmd.x1 + cmd.w / 2), static_cast<int16_t>(cmd.y1 + cmd.h / 2),
                         static_cast<int16_t>(cmd.w / 2), // static_cast<int16_t>(cmd.h / 2),
                         static_cast<int16_t>(cmd.color), static_cast<int16_t>(-cmd.start_angle), static_cast<int16_t>(-cmd.start_angle - cmd.sweep_angle),
@@ -347,7 +372,7 @@ void GFillPie(COLORREF color, int x, int y, int width, int height, int startAngl
                         static_cast<int16_t>(color), static_cast<int16_t>(-startAngle), static_cast<int16_t>(-startAngle - sweepAngle) };
     drawcircle(data);
 }
-void FillRoundedRectangle(const DrawCommand & cmd) {
+void FillRoundedRectangle(const DrawCommand& cmd) {
     int x = cmd.x1, y = cmd.y1, width = cmd.w, height = cmd.h;
     int rx = cmd.rx;
     int ry = cmd.ry;
@@ -364,13 +389,13 @@ void FillRoundedRectangle(const DrawCommand & cmd) {
     GFillPie(color, x + width - dx, y + height - dy, dx, dy, 0, 90);
 }
 #endif
-void DrawString(const DrawCommand & cmd) {
+void DrawString(const DrawCommand& cmd) {
     DrawStringStruct data = { static_cast<uint16_t>(cmd.x1), static_cast<uint16_t>(cmd.y1),
         nullptr, 1, 1, static_cast<uint16_t>(cmd.color), 0, 0 };
     data.str = cmd.text;
     drawstring(&data);
 }
-void Circle(const DrawCommand & cmd) {
+void Circle(const DrawCommand& cmd) {
     int16_t data[8] = { static_cast<int16_t>(cmd.x1), static_cast<int16_t>(cmd.y1),
                         static_cast<int16_t>(cmd.r),
                         static_cast<int16_t>(cmd.color),
@@ -379,56 +404,65 @@ void Circle(const DrawCommand & cmd) {
                         static_cast<int16_t>(cmd.hbyw) };
     drawcircle(data);
 }
-void Paint(const DrawCommand & cmd) {
+void Paint(const DrawCommand& cmd) {
     char work[1000]; // 適当なサイズのワーク領域
     PaintStruct data = { static_cast<uint16_t>(cmd.x1), static_cast<uint16_t>(cmd.y1),
                          static_cast<uint16_t>(cmd.color), work, work + sizeof work };
     paint(&data);
 }
-void Pset(const DrawCommand & cmd) {
+void Pset(const DrawCommand& cmd) {
     uint16_t data[3] = { static_cast<uint16_t>(cmd.x1), static_cast<uint16_t>(cmd.y1),
                          static_cast<uint16_t>(cmd.color) };
     pset(data);
 }
-void Point(DrawCommand & cmd) {
+void Point(DrawCommand& cmd) {
     uint16_t data[3] = { static_cast<uint16_t>(cmd.x1), static_cast<uint16_t>(cmd.y1),
                          0 };
     point(data);
     cmd.color = data[2]; // 結果をcmd.colorに格納
 }
-void Symbol(const DrawCommand & cmd) {
+void Symbol(const DrawCommand& cmd) {
     DrawStringStruct data = { static_cast<uint16_t>(cmd.x1), static_cast<uint16_t>(cmd.y1),
         cmd.text, cmd.mx, cmd.my, static_cast<uint16_t>(cmd.color), cmd.font_size, cmd.rotation };
     drawstring(&data);
 }
-void Apage(const DrawCommand & cmd) {
+void Apage(const DrawCommand& cmd) {
     apage(cmd.page);
 }
-void Vpage(const DrawCommand & cmd) {
+void Vpage(const DrawCommand& cmd) {
     vpage(cmd.page);
 }
-void Wipe(const DrawCommand & cmd) {
+void Wipe(const DrawCommand& cmd) {
     wipe();
 }
-bool check_sc1(const DrawCommand & cmd, int mode) {
+void CrtMod(const DrawCommand& cmd) {
+    crtmod(cmd.crtmode);
+}
+void GClrOn(const DrawCommand& cmd) {
+    g_clr_on();
+}
+void GPalet(const DrawCommand& cmd) {
+    gpalet(cmd.color, cmd.color_code);
+}
+bool check_sc1(const DrawCommand& cmd, int mode) {
     if (cmd.sc1 == 0 && (mode == 2 || mode == 3 || mode == 6 || mode == 7 || mode == 10 || mode == 11 || mode == 14)) return true;
     if (cmd.sc1 == 1 && (mode == 0 || mode == 1 || mode == 4 || mode == 5 || mode == 8 || mode == 9 || mode == 12 || mode == 13 || mode == 15)) return true;
     if (cmd.sc1 == 2 && mode == 16) return true;
     return false;
 }
-bool check_sc2(const DrawCommand & cmd, int mode) {
+bool check_sc2(const DrawCommand& cmd, int mode) {
     if (cmd.sc2 == 0 && (mode == 0 || mode == 1 || mode == 2 || mode == 3 || mode == 16 || mode == 17 || mode == 18)) return true;
     if (cmd.sc2 == 1 && (mode == 4 || mode == 5 || mode == 6 || mode == 7)) return true;
     if (cmd.sc2 == 2 && (mode == 8 || mode == 9 || mode == 10 || mode == 11)) return true;
     if (cmd.sc2 == 3 && (mode == 12 || mode == 13 || mode == 14 || mode == 15)) return true;
     return false;
 }
-bool check_sc3(const DrawCommand & cmd, int mode) {
+bool check_sc3(const DrawCommand& cmd, int mode) {
     if (cmd.sc3 == 0 && (mode == 1 || mode == 3 || mode == 5 || mode == 7 || mode == 9 || mode == 11 || mode == 13 || mode == 15)) return true;
     if (cmd.sc3 == 1 && (mode == 0 || mode == 2 || mode == 4 || mode == 6 || mode == 8 || mode == 10 || mode == 12 || mode == 14)) return true;
     return false;
 }
-int get_crt_mode(const DrawCommand & cmd) {
+int get_crt_mode(const DrawCommand& cmd) {
     for (int mode = 0; mode <= 18; ++mode) {
         if (check_sc1(cmd, mode) && check_sc2(cmd, mode) && check_sc3(cmd, mode)) {
             return mode;
@@ -436,7 +470,7 @@ int get_crt_mode(const DrawCommand & cmd) {
     }
     return -1; // モードが見つからない場合
 }
-void Screen(const DrawCommand & cmd) {
+void Screen(const DrawCommand& cmd) {
     // sc1: 表示画面サイズ
     //   0…256×256  mode=2,3,6,7,10,11,14
     //   1…512×512  mode=0,1,4,5,8.9,12,13,15
@@ -456,22 +490,19 @@ void Screen(const DrawCommand & cmd) {
     if (mode >= 0) {
         crtmod(mode);
         if (cmd.sc4 == 1) {
-            gclear(); // グラフィック画面をクリア
+            g_clr_on(); // グラフィック画面をクリア
         }
     }
 }
-void Window(const DrawCommand & cmd) {
+void Window(const DrawCommand& cmd) {
     window(cmd.x1, cmd.y1, cmd.x2, cmd.y2);
-}
-void Test(DrawCommand & cmd) {
-    test();
 }
 #endif
 
 #ifdef USE_X68000
 void draw_number_string(HDC hdc, const char* text, int numer_string_type, int x1, int y1, int w, int h, COLORREF color);
 void exec_command_x(DrawCommand& cmd) {
-    print_command(cmd); // デバッグ用にコマンドを表示
+    //print_command(cmd); // デバッグ用にコマンドを表示
     switch (cmd.type) {
     case DrawType::Line:
         DrawLine(cmd);
@@ -542,9 +573,6 @@ void exec_command_x(DrawCommand& cmd) {
     case DrawType::NumberString:
         draw_number_string(hdc, cmd.text, cmd.number_string_type, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.color);
         break;
-    case DrawType::Test:
-        Test(cmd);
-        break;
     }
 }
 #endif
@@ -552,7 +580,7 @@ void exec_command_x(DrawCommand& cmd) {
 #ifndef USE_X68000
 #include <stack>
 using namespace std;
-void change_color(HDC hdc, int x, int y, COLORREF bc, stack<POINT>&points)
+void change_color(HDC hdc, int x, int y, COLORREF bc, stack<POINT>& points)
 {
     COLORREF c = GetPixel(hdc, x, y);
     if (c == bc) {
@@ -778,16 +806,6 @@ inline float tab_cos(int deg) {
     return sine_table[index];
 }
 inline void DirectDrawArcLineTo(HDC hdc, int cx, int cy, int w, int h, int a, COLORREF color) {
-#ifndef USE_X68000
-    ConOutput co_cout(hOutput);
-    co_cout << "DirectDrawArcLineTo" << co_endl;
-    co_cout << "  cx = " << cx << co_endl;
-    co_cout << "  cy = " << cy << co_endl;
-    co_cout << "  w  = " << w << co_endl;
-    co_cout << "  h  = " << h << co_endl;
-    co_cout << "  a  = " << a << co_endl;
-    co_cout << "  color = " << (int)color << co_endl;
-#endif
 #ifdef USE_FUNC_TABLE
     int x = cx + (int)(tab_cos(a) * w / 2);
     int y = cy - (int)(tab_sin(a) * h / 2);
@@ -1108,7 +1126,7 @@ void DirectFillTriangle(HDC hdc, int x1, int y1, int x2, int y2, int x3, int y3,
 }
 #endif
 
-void draw_cmd(HDC hdc, DrawCommand & cmd);
+void draw_cmd(HDC hdc, DrawCommand& cmd);
 
 void paint_cmd(HWND hwnd) {
 #ifndef USE_X68000
@@ -1126,37 +1144,11 @@ void paint_cmd(HWND hwnd) {
 
 #include "drawdigit.h"
 
-void digital_test(HDC hdc, int n, int xi, int yi) {
-    int fw = 100;
-    int fh = 150;
-    double r = 0.9;
-    double w = fw * r;
-    double h = fh * r;
-    int x = fw * xi + fw * (1 - r) * 0.5;
-    int y = fh * yi + fh * (1 - r) * 0.5;
-    draw_digit1(hdc, n, x, y, (int)w, (int)h, RGB(0, 0, 255));
-}
-
-void test_(HDC hdc) {
-    digital_test(hdc, 0, 0, 0);
-    digital_test(hdc, 1, 1, 0);
-    digital_test(hdc, 2, 2, 0);
-    digital_test(hdc, 3, 3, 0);
-    digital_test(hdc, 4, 0, 1);
-    digital_test(hdc, 5, 1, 1);
-    digital_test(hdc, 6, 2, 1);
-    digital_test(hdc, 7, 3, 1);
-    digital_test(hdc, 8, 0, 2);
-    digital_test(hdc, 9, 1, 2);
-    digital_test(hdc, 10, 2, 2);
-    digital_test(hdc, 11, 3, 2);
-}
-
 void draw_number_string(HDC hdc, const char* text, int numer_string_type, int x1, int y1, int w, int h, COLORREF color) {
     draw_num_str(hdc, text, numer_string_type, x1, y1, w, h, color);
 }
 
-void draw_cmd(HDC hdc, DrawCommand & cmd) {
+void draw_cmd(HDC hdc, DrawCommand& cmd) {
 #ifdef PIXEL_DRAW_MODE // Windowsの機能を使わず直接描画する場合(SetPixelを使う)
     switch (cmd.type) {
     case DrawType::Line:
@@ -1184,10 +1176,8 @@ void draw_cmd(HDC hdc, DrawCommand & cmd) {
         DirectFillEllipse(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.color);
         break;
     case DrawType::FillPie:
-    {
         DirectFillPie(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.start_angle, cmd.sweep_angle, cmd.color);
         break;
-    }
     case DrawType::FillRoundRect:
         DirectFillRoundedRectangle(hdc, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.rx, cmd.ry, cmd.color);
         break;
@@ -1198,17 +1188,10 @@ void draw_cmd(HDC hdc, DrawCommand & cmd) {
         DirectFillTrapezoid(hdc, cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.w, cmd.w2, cmd.color);
         break;
     case DrawType::Circle:
-    {
         break;
-    }
     case DrawType::NumberString:
     {
         draw_number_string(hdc, cmd.text, cmd.number_string_type, cmd.x1, cmd.y1, cmd.w, cmd.h, cmd.color);
-        break;
-    }
-    case DrawType::Test:
-    {
-        // テスト用
         break;
     }
     case DrawType::Paint:
@@ -1481,15 +1464,15 @@ void run(ConOutput& co_cout) {
     mouse_recieve();
 }
 
-bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput & co_cerr) {
+bool set_draw_cmd(int token_count, char** tokens, ConOutput& co_cout, ConOutput& co_cerr) {
     const char* commands[] = {
         "exit", "drawline",
         "drawrectangle", "drawellipse", "drawarc", "drawpie", "drawroundedrectangle",
         "fillrectangle", "fillellipse", "fillpie", "fillroundedrectangle",
-		"filltriangle", "filltrapezoid",
+        "filltriangle", "filltrapezoid",
         "line", "box", "circle", "fill", "paint", "pset", "point", "symbol",
-        "apage", "vpage", "wipe", "screen", "window",
-        "drawnumberstring", "run", "test", "sine", "orthogonal"
+        "apage", "vpage", "wipe", "crtmod", "g_clr_on", "gpalet", "screen", "window",
+        "drawnumberstring", "run"
     };
     const int command_count = sizeof(commands) / sizeof(commands[0]);
     CommandMatchResult result = matchCommand(tokens[0], commands, command_count);
@@ -1648,8 +1631,8 @@ bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput
         strcpy_s(cmd.text, sizeof(cmd.text), tokens[3]);
         cmd.mx = atoi(tokens[4]); // X方向の拡大率
         cmd.my = atoi(tokens[5]); // Y方向の拡大率
-        cmd.font_size = atoi(tokens[6]); // フォントのタイプ 0-2
-        cmd.color = parseColor(tokens[7]);
+        cmd.color = parseColor(tokens[6]);
+        cmd.font_size = atoi(tokens[7]); // フォントのタイプ 0-2
         cmd.rotation = atoi(tokens[8]); // 回転データ 0-3
     }
     else if (result.is_command("apage") && token_count == 2) {
@@ -1662,6 +1645,18 @@ bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput
     }
     else if (result.is_command("wipe") && token_count == 1) {
         cmd.type = DrawType::Wipe;
+    }
+    else if (result.is_command("crtmod") && token_count == 2) {
+        cmd.type = DrawType::CrtMod;
+        cmd.crtmode = atoi(tokens[1]);
+    }
+    else if (result.is_command("gclron") && token_count == 1) {
+        cmd.type = DrawType::GClrOn;
+    }
+    else if (result.is_command("gpalet") && token_count == 3) {
+        cmd.type = DrawType::GPalet;
+        cmd.color = atoi(tokens[1]);
+        cmd.color_code = atoi(tokens[2]);
     }
     else if (result.is_command("screen") && token_count >= 2 && token_count <= 4) {
         cmd.type = DrawType::Screen;
@@ -1692,33 +1687,23 @@ bool set_draw_cmd(int token_count, char** tokens, ConOutput & co_cout, ConOutput
         cmd.color = parseColor(tokens[7]);
     }
     else if (result.is_command("run") && token_count == 1) {
-		run(co_cout);
+        run(co_cout);
         return true;
-    }
-    else if (result.is_command("test") && token_count == 1) {
-        cmd.type = DrawType::Test;
-    }
-    else if (result.is_command("sine") && token_count == 1) {
-        // 正弦関数の表を作る
-        // 単精度浮動小数点数の有効桁数約7桁なので小数点以下7桁まで表示
-        for (int a = 0; a <= 450; a += 5) {
-            double rad = deg_to_rad(a);
-            double sine_value = sin(rad);
-            //printf("Sine(%d) = %.7f\n", a, sine_value);
-            printf("%.7f,\n", sine_value);
-        }
-    }
-    else if (result.is_command("orthogonal") && token_count == 1) {
-        // 円の反対側の座標の表を作る
-        // 画面上の座標(最大1024)なので、半径は10000とする
-        double r = 10000; // 円の半径
-        for (int y = 0; y <= r; y += 100) {
-            int x = (int)sqrt(r * r - y * y); // 円のx座標
-            printf("%d,\n", x);
-        }
     }
     //set_cmd(cmd);
     exec_command(cmd);
+    co_cout << "Command complete." << co_endl;
+    if (result.is_command("point") && token_count == 3) {
+#ifdef USE_X68000
+		// X68000版ではファイルサイズを小さくするためにprintfを使用
+        printf("Point at (%d, %d) with color %06X\n", cmd.x1, cmd.y1, cmd.color);
+#else
+        co_cout << "point at (" << cmd.x1 << ", " << cmd.y1 << ") with color " << co_hex << (int)cmd.color << co_endl;
+#endif
+    }
+    else {
+        co_cout << "no result." << co_endl;
+    }
     return true;
 }
 
@@ -1809,7 +1794,7 @@ void prompt() {
 int main() {
 #ifdef USE_X68000
     crtmod(4);  // X68000版では画面モードを設定
-    gclear();    // 画面をクリア
+    g_clr_on();    // 画面をクリア
     apage(0); // グラフィックページを設定
 #else
     std::thread winThread(WindowThread);

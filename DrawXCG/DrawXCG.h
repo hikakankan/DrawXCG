@@ -7,8 +7,7 @@ void DrawHLine(HDC hdc, int x1, int y1, int w, COLORREF color);
 enum class DrawType {
     Line, Rect, Ellipse, Arc, Pie, RoundRect, FillRect, FillEllipse, FillPie, FillRoundRect,
 	FillTriangle, FillTrapezoid, NumberString,
-    Circle, Paint, Pset, Point, Symbol, Apage, Vpage, Wipe, Screen, Window,
-    Test
+    Circle, Paint, Pset, Point, Symbol, Apage, Vpage, Wipe, CrtMod, GClrOn, GPalet, Screen, Window
 };
 
 #define MAX_DRAW_TEXT 1024 // 最大文字列長
@@ -20,6 +19,7 @@ struct DrawCommand {
     int x1, y1, x2, y2, w, h, rx, ry, x3, y3, w2;
     int start_angle, sweep_angle;
     int r, hbyw, end_angle, sc1, sc2, sc3, sc4, page;
+    int crtmode, color_code;
     uint8_t mx, my, font_size, rotation;
 	int number_string_type; // 数値文字列のタイプ
     char text[MAX_DRAW_TEXT];

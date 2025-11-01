@@ -216,7 +216,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
     RegisterClass(&wc);
 
     HWND hwnd = CreateWindowEx(
-        0, CLASS_NAME, L"GUI Console",
+        0, CLASS_NAME, L"DrawXCG - XCG System",
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, 868, 578,
         NULL, NULL, hInstance, NULL

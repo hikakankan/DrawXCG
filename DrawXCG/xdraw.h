@@ -5,7 +5,7 @@
 // インラインアセンブラで使うためのグローバル変数の定義
 #define MAX_DRAW_TEXT 1024 // 最大文字列長
 #define MAX_XARGS 8 // 最大引数数
-int32_t g_color;
+int32_t g_color, g_color_code;
 int32_t g_x1, g_y1, g_x2, g_y2, g_x3, g_y3, g_w, g_h, g_w2, g_rx, g_ry;
 int32_t g_start_angle, g_sweep_angle;
 int32_t g_r, g_hbyw, g_end_angle, g_sc1, g_sc2, g_sc3, g_sc4, g_page;
@@ -100,7 +100,7 @@ int get_crtmod()
     return mode;
 }
 // グラフィック画面のページをクリア
-void gclear()
+void g_clr_on()
 {
     asm(
         "move.l #0x90, %%d0\n\t" // _G_CLR_ON
@@ -108,6 +108,21 @@ void gclear()
         :
     :                        // 入力なし
         : "d0"                   // 使用するレジスタ
+        );
+}
+// グラフィック・パレットを設定
+void gpalet(int color, int color_code)
+{
+	g_color = color;
+	g_color_code = color_code;
+    asm(
+        "move.l #0x94, %%d0\n\t" // _GPALET
+        "move.l g_color, %%d1\n\t"
+        "move.l g_color_code, %%d2\n\t"
+        "trap   #15\n\t"
+        :
+        :                        // 入力
+        : "d0", "d1", "d2"       // 使用するレジスタ
         );
 }
 // グラフィック画面の書き込みページを設定
